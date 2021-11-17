@@ -1,0 +1,8 @@
+prefix=/home/simon/catkin_ws/install
+
+Name: active_inference_robotics
+Description: Description of active_inference_robotics
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 
