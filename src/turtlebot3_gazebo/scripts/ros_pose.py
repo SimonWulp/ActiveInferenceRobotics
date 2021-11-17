@@ -33,7 +33,7 @@ class PoseSensorMapper:
         # pose in (x-coordinate, y-coordinate, yaw in degrees)
         ros_pose = (ros_x, ros_y, ros_ori_yaw_deg)
 
-        print('{:.1f},\n'.format(ros_ori_yaw_deg))
+        print('{:.2f},\n'.format(ros_ori_yaw_deg))
         
 
     
