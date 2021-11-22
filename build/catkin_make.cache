@@ -1,2 +1,2 @@
-active_inference_robotics:aws-robomaker-small-warehouse-world:beginner_tutorials:turtlebot3_simulations/turtlebot3_fake:turtlebot3_simulations/turtlebot3_gazebo:turtlebot3_simulations/turtlebot3_simulations
+turtlebot3_gazebo
 -DCATKIN_DEVEL_PREFIX=/home/simon/catkin_ws/devel -DCMAKE_INSTALL_PREFIX=/home/simon/catkin_ws/install -G Unix Makefiles

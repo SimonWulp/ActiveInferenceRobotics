@@ -36,45 +36,56 @@ class PoseSensorMapper:
 
         self.bridge = CvBridge()
 
-    def callback(self, laser_msg, image_msg):
-        ## POSE
-        # position coordinates
-        ros_pos = self.state_msg.pose.position
-        ros_x = ros_pos.x
-        ros_y = ros_pos.y
+        self.i = 0
+        self.o = 0
 
-        # orientation quaternion to yaw in 0-360 degrees
+    def callback(self, laser_msg, image_msg):
+        # position
+        ros_pos = self.state_msg.pose.position
+
+        # laser ranges
+        ranges = laser_msg.ranges
+
+        # # camera image
+        # try:
+        #     cv_image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
+        # except CvBridgeError as e:
+        #     print(e)
+
+        # cv2.imshow("Image window", cv_image)
+
+        self.update_pose(-self.i, -self.i, self.o)
+
+        print(ros_pos.x, ros_pos.y)
+
+        cv2.waitKey(3)
+
+        input('Press key')
+
+        # self.i += 1
+        self.o += 45
+
+    def update_pose(self, x, y, yaw_degrees):
+        self.state_msg.pose.position.x = x
+        self.state_msg.pose.position.y = y
+        
+        quaternion = self.yaw_to_quat(yaw_degrees)
+        self.state_msg.pose.orientation.x = quaternion[0]
+        self.state_msg.pose.orientation.y = quaternion[1]
+        self.state_msg.pose.orientation.z = quaternion[2]
+        self.state_msg.pose.orientation.w = quaternion[3]
+
+        self.set_state(self.state_msg)
+
+    def quat_to_yaw(quaternion):
+        ...
         # ros_ori_quat = pose_msg.pose.pose.orientation
         # ros_ori_euler = trans.euler_from_quaternion([ros_ori_quat.x, ros_ori_quat.y, ros_ori_quat.z, ros_ori_quat.w])
         # ros_ori_yaw_deg = abs(math.degrees(ros_ori_euler[2]) % 360)
 
-        # pose in (x-coordinate, y-coordinate, yaw in degrees)
-        ros_pose = (ros_x, ros_y)
-
-        ## LASER
-        # laser ranges
-        ranges = laser_msg.ranges
-
-        ## IMAGE
-        try:
-            cv_image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
-        except CvBridgeError as e:
-            print(e)
-
-        # cv2.imshow("Image window", cv_image)
-
-        
-
-        self.state_msg.pose.position.x = -self.i
-        self.state_msg.pose.position.y = -self.i
-        
-        self.set_state(self.state_msg)
-
-        print('{}'.format(ros_pose))
-        cv2.waitKey(3)
-
-        input('Press key')
-        self.i += 1
+    def yaw_to_quat(self, yaw_degrees):
+        yaw_radians = math.radians(yaw_degrees)
+        return trans.quaternion_from_euler(0, 0, yaw_radians)
 
 
 def main():

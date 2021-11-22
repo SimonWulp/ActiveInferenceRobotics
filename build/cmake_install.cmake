@@ -131,12 +131,7 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
   include("/home/simon/catkin_ws/build/gtest/cmake_install.cmake")
-  include("/home/simon/catkin_ws/build/aws-robomaker-small-warehouse-world/cmake_install.cmake")
-  include("/home/simon/catkin_ws/build/turtlebot3_simulations/turtlebot3_simulations/cmake_install.cmake")
-  include("/home/simon/catkin_ws/build/beginner_tutorials/cmake_install.cmake")
-  include("/home/simon/catkin_ws/build/turtlebot3_simulations/turtlebot3_fake/cmake_install.cmake")
-  include("/home/simon/catkin_ws/build/turtlebot3_simulations/turtlebot3_gazebo/cmake_install.cmake")
-  include("/home/simon/catkin_ws/build/active_inference_robotics/cmake_install.cmake")
+  include("/home/simon/catkin_ws/build/turtlebot3_gazebo/cmake_install.cmake")
 
 endif()
 
