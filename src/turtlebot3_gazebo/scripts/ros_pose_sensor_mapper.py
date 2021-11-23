@@ -4,6 +4,7 @@ from __future__ import print_function
 import sys
 import math
 from typing import Set
+from genpy import message
 import rospy
 import cv2
 from std_msgs.msg import String
@@ -19,14 +20,16 @@ import message_filters
 class PoseSensorMapper:
 
     def __init__(self):
-        rospy.wait_for_service('/gazebo/set_model_state')
-        try:
-           self.set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
-        except rospy.ServiceException :
-            print("Service call failed")
+        self.set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
+        self.get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
 
-        self.state_msg = ModelState()
-        self.state_msg.model_name = 'turtlebot3_waffle_pi'
+        self.map_x_range = (-4.5, 3.5)
+        self.map_y_range = (-3.5, 3.5)
+
+        self.x = self.map_x_range[0]
+        self.y = self.map_y_range[0]
+
+        self.update_pose(self.x, self.y, 0)
 
         self.laser_sub = message_filters.Subscriber("/scan", LaserScan)
         self.image_sub = message_filters.Subscriber("/camera/rgb/image_raw", Image)
@@ -36,12 +39,9 @@ class PoseSensorMapper:
 
         self.bridge = CvBridge()
 
-        self.i = 0
-        self.o = 0
-
     def callback(self, laser_msg, image_msg):
         # position
-        ros_pos = self.state_msg.pose.position
+        
 
         # laser ranges
         ranges = laser_msg.ranges
@@ -53,29 +53,69 @@ class PoseSensorMapper:
         #     print(e)
 
         # cv2.imshow("Image window", cv_image)
+        # cv2.waitKey(3)
 
-        self.update_pose(-self.i, -self.i, self.o)
+        input('-')
+        
 
-        print(ros_pos.x, ros_pos.y)
+        d = 1
 
-        cv2.waitKey(3)
+        if self.x + d <= self.map_x_range[1]:
+            next_x = self.x + d
+            next_y = self.y
+            if self.legal_pos(next_x, next_y):
+                self.update_pose(next_x, next_y, 0)
+            self.x = next_x
+            self.y = next_y
 
-        input('Press key')
+        elif self.y + d <= self.map_y_range[1]:
+            next_x = self.map_x_range[0]
+            next_y = self.y + d
+            if self.legal_pos(next_x, next_y):
+                self.update_pose(next_x, next_y, 0)
+            self.x = next_x
+            self.y = next_y
 
-        # self.i += 1
-        self.o += 45
+        ros_pos = self.get_state('turtlebot3_waffle_pi', '').pose.position
+
+        if self.x == round(ros_pos.x, 2) and self.y == round(ros_pos.y, 2):
+            print('Robot moved')
+        
+    def legal_pos(self, x, y):
+        if self._in_field(x, y) and not self._in_couch(x, y) and not self._in_table(x, y):
+            return True
+        else:
+            return False
+
+    def _in_field(self, x, y):
+        if x >= self.map_x_range[0] and x <= self.map_x_range[1] and y >= self.map_y_range[0] and y <= self.map_y_range[1]:
+            return True
+        return False
+
+    def _in_couch(self, x, y):
+        if x > -4.6 and x < -2 and y > -2.7 and y < 2.2:
+            return True
+        return False
+
+    def _in_table(self, x, y):
+        if x > 0 and x < 1.7 and y > -1.2 and y < 1.3:
+            return True
+        return False
 
     def update_pose(self, x, y, yaw_degrees):
-        self.state_msg.pose.position.x = x
-        self.state_msg.pose.position.y = y
+        next_state = ModelState()
+        next_state.model_name = 'turtlebot3_waffle_pi'
+
+        next_state.pose.position.x = x
+        next_state.pose.position.y = y
         
         quaternion = self.yaw_to_quat(yaw_degrees)
-        self.state_msg.pose.orientation.x = quaternion[0]
-        self.state_msg.pose.orientation.y = quaternion[1]
-        self.state_msg.pose.orientation.z = quaternion[2]
-        self.state_msg.pose.orientation.w = quaternion[3]
+        next_state.pose.orientation.x = quaternion[0]
+        next_state.pose.orientation.y = quaternion[1]
+        next_state.pose.orientation.z = quaternion[2]
+        next_state.pose.orientation.w = quaternion[3]
 
-        self.set_state(self.state_msg)
+        self.set_state(next_state)
 
     def quat_to_yaw(quaternion):
         ...
