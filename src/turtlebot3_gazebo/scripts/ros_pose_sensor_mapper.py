@@ -28,7 +28,11 @@ class PoseSensorMapper:
 
         self.x = self.map_x_range[0]
         self.y = self.map_y_range[0]
+        self.step_size = 1
 
+        self.turning_mode = True
+        self.turns = 16
+        
         self.update_pose(self.x, self.y, 0)
 
         self.laser_sub = message_filters.Subscriber("/scan", LaserScan)
@@ -39,47 +43,53 @@ class PoseSensorMapper:
 
         self.bridge = CvBridge()
 
-    def callback(self, laser_msg, image_msg):
-        # position
-        
-
+    def callback(self, laser_msg, image_msg):        
         # laser ranges
         ranges = laser_msg.ranges
+        print(ranges)
 
-        # # camera image
-        # try:
-        #     cv_image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
-        # except CvBridgeError as e:
-        #     print(e)
-
-        # cv2.imshow("Image window", cv_image)
-        # cv2.waitKey(3)
-
-        input('-')
-        
-
-        d = 1
-
-        if self.x + d <= self.map_x_range[1]:
-            next_x = self.x + d
-            next_y = self.y
-            if self.legal_pos(next_x, next_y):
-                self.update_pose(next_x, next_y, 0)
-            self.x = next_x
-            self.y = next_y
-
-        elif self.y + d <= self.map_y_range[1]:
-            next_x = self.map_x_range[0]
-            next_y = self.y + d
-            if self.legal_pos(next_x, next_y):
-                self.update_pose(next_x, next_y, 0)
-            self.x = next_x
-            self.y = next_y
+        # camera image
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
+        except CvBridgeError as e:
+            print(e)
+        cv2.imshow("Image window", cv_image)
+        cv2.waitKey(3)
 
         ros_pos = self.get_state('turtlebot3_waffle_pi', '').pose.position
 
-        if self.x == round(ros_pos.x, 2) and self.y == round(ros_pos.y, 2):
-            print('Robot moved')
+        if not self.turning_mode:
+            if self.x + self.step_size <= self.map_x_range[1]:
+                next_x = self.x + self.step_size
+                next_y = self.y
+                if self.legal_pos(next_x, next_y):
+                    self.update_pose(next_x, next_y, 0)
+                    self.turning_mode = True
+                    print('Robot moved')
+                self.x = next_x
+                self.y = next_y
+
+            elif self.y + self.step_size <= self.map_y_range[1]:
+                next_x = self.map_x_range[0]
+                next_y = self.y + self.step_size
+                if self.legal_pos(next_x, next_y):
+                    self.update_pose(next_x, next_y, 0)
+                    self.turning_mode = True
+                    print('Robot moved')
+                self.x = next_x
+                self.y = next_y
+        
+
+        if self.turning_mode and self.x == round(ros_pos.x, 2) and self.y == round(ros_pos.y, 2):
+            if self.turns > 0:
+                self.update_pose(self.x, self.y, self.turns*22.5)
+                self.turns -= 1
+            if self.turns == 0:
+                self.turning_mode = False
+                self.turns = 16
+
+
+
         
     def legal_pos(self, x, y):
         if self._in_field(x, y) and not self._in_couch(x, y) and not self._in_table(x, y):
