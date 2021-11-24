@@ -16,6 +16,9 @@ from cv_bridge import CvBridge, CvBridgeError
 from PIL import Image as ImagePIL
 from tf import transformations as trans
 import message_filters
+import pickle
+
+mapping = {}
 
 class PoseSensorMapper:
 
@@ -46,17 +49,19 @@ class PoseSensorMapper:
     def callback(self, laser_msg, image_msg):        
         # laser ranges
         ranges = laser_msg.ranges
-        print(ranges)
+        # print(ranges)
 
         # camera image
         try:
-            cv_image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
+            cv_image = self.bridge.imgmsg_to_cv2(image_msg, "mono8")
         except CvBridgeError as e:
             print(e)
         cv2.imshow("Image window", cv_image)
         cv2.waitKey(3)
 
-        ros_pos = self.get_state('turtlebot3_waffle_pi', '').pose.position
+        ros_pose = self.get_state('turtlebot3_waffle_pi', '').pose
+        ros_position = ros_pose.position
+        ros_orientation = ros_pose.orientation
 
         if not self.turning_mode:
             if self.x + self.step_size <= self.map_x_range[1]:
@@ -65,7 +70,7 @@ class PoseSensorMapper:
                 if self.legal_pos(next_x, next_y):
                     self.update_pose(next_x, next_y, 0)
                     self.turning_mode = True
-                    print('Robot moved')
+                    print('Robot moved to ', next_x, '\t', next_y)
                 self.x = next_x
                 self.y = next_y
 
@@ -75,18 +80,28 @@ class PoseSensorMapper:
                 if self.legal_pos(next_x, next_y):
                     self.update_pose(next_x, next_y, 0)
                     self.turning_mode = True
-                    print('Robot moved')
+                    print('Robot moved to ', next_x, '\t', next_y)
                 self.x = next_x
                 self.y = next_y
         
 
-        if self.turning_mode and self.x == round(ros_pos.x, 2) and self.y == round(ros_pos.y, 2):
+        if self.turning_mode and self.x == round(ros_position.x, 2) and self.y == round(ros_position.y, 2):
             if self.turns > 0:
                 self.update_pose(self.x, self.y, self.turns*22.5)
+                # im_str = '/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/' + str(self.x) + '_' + str(self.y) + '_' + str((self.turns*22.5)%360) + '.jpg'
+                # cv2.imwrite(im_str, cv_image)
+                print('Image captured')
+                mapping[(self.x, self.y, (self.turns*22.5)%360)] = ranges
+
                 self.turns -= 1
             if self.turns == 0:
                 self.turning_mode = False
                 self.turns = 16
+
+        # self.mapping[(self.x, self.y, )]
+        # print('Recorded frame\tx: ', self.x, '\ty: ', self.y, '\tyaw: ', (self.turns*22.5)%360)
+
+        # input('-')
 
 
 
@@ -127,11 +142,9 @@ class PoseSensorMapper:
 
         self.set_state(next_state)
 
-    def quat_to_yaw(quaternion):
-        ...
-        # ros_ori_quat = pose_msg.pose.pose.orientation
-        # ros_ori_euler = trans.euler_from_quaternion([ros_ori_quat.x, ros_ori_quat.y, ros_ori_quat.z, ros_ori_quat.w])
-        # ros_ori_yaw_deg = abs(math.degrees(ros_ori_euler[2]) % 360)
+    def quat_to_yaw(self, quaternion):
+        ros_ori_euler = trans.euler_from_quaternion(quaternion)
+        return abs(math.degrees(ros_ori_euler[2]) % 360)
 
     def yaw_to_quat(self, yaw_degrees):
         yaw_radians = math.radians(yaw_degrees)
@@ -144,6 +157,10 @@ def main():
 
     try:
         rospy.spin()
+        print('Pickle dumped')
+        with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data.pkl', 'wb') as f:
+            pickle.dump(mapping, f)
+
     except KeyboardInterrupt:
         print("Shutting down")
     cv2.destroyAllWindows()
