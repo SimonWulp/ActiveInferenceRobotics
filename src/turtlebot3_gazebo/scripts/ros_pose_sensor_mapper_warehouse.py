@@ -26,15 +26,15 @@ class PoseSensorMapper:
         self.set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
         self.get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
 
-        self.map_x_range = (-4.5, 3.5)
-        self.map_y_range = (-3.5, 3.5)
+        self.map_x_range = (-4.2, 6.5)
+        self.map_y_range = (-9.9, 10.1)
 
         self.x = self.map_x_range[0]
         self.y = self.map_y_range[0]
-        self.step_size = 3
+        self.step_size = 0.25
 
         self.turning_mode = True
-        self.turns = 16
+        self.turns_left = self.turns = 16
         
         self.update_pose(self.x, self.y, 0)
 
@@ -63,12 +63,11 @@ class PoseSensorMapper:
 
         ros_pose = self.get_state('turtlebot3_waffle_pi', '').pose
         ros_position = ros_pose.position
-        ros_orientation = ros_pose.orientation
 
         if not self.turning_mode:
             if self.x + self.step_size <= self.map_x_range[1]:
-                next_x = self.x + self.step_size
-                next_y = self.y
+                next_x = round(self.x + self.step_size, 2)
+                next_y = round(self.y, 2)
                 if self.legal_pos(next_x, next_y):
                     self.update_pose(next_x, next_y, 0)
                     self.turning_mode = True
@@ -78,8 +77,8 @@ class PoseSensorMapper:
                 self.y = next_y
 
             elif self.y + self.step_size <= self.map_y_range[1]:
-                next_x = self.map_x_range[0]
-                next_y = self.y + self.step_size
+                next_x = round(self.map_x_range[0], 2)
+                next_y = round(self.y + self.step_size, 2)
                 if self.legal_pos(next_x, next_y):
                     self.update_pose(next_x, next_y, 0)
                     self.turning_mode = True
@@ -91,24 +90,22 @@ class PoseSensorMapper:
             else:
                 rospy.signal_shutdown('Field mapped')
         
-
         if self.turning_mode and callback_ended and self.x == round(ros_position.x, 2) and self.y == round(ros_position.y, 2):
-            if self.turns > 0:
-                print('Picture taken at {}\t{}\t{}'.format(self.x, self.y, self.turns*22.5))
+            if self.turns_left > 0:
                 # im_str = '/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/' + str(self.x) + '_' + str(self.y) + '_' + str((self.turns*22.5)%360) + '.jpg'
-                mapping[(self.x, self.y, self.turns*22.5)] = (ranges, cv_image)
-                self.update_pose(self.x, self.y, (self.turns-1)*22.5)
-                self.turns -= 1
+                mapping[(self.x, self.y, self.turns_left*(360/self.turns))] = (ranges, cv_image)
+                print('Mapping made at {}\t{}\t{}'.format(self.x, self.y, self.turns_left*(360/self.turns)))
+                self.update_pose(self.x, self.y, (self.turns_left-1)*(360/self.turns))
+                self.turns_left -= 1
                 
-                
-            if self.turns == 0:
+            if self.turns_left == 0:
                 self.turning_mode = False
-                self.turns = 16
+                self.turns_left = self.turns
 
 
         
     def legal_pos(self, x, y):
-        if self._in_field(x, y) and not self._in_couch(x, y) and not self._in_table(x, y):
+        if self._in_field(x, y) and not self._in_obj(x, y):
             return True
         else:
             return False
@@ -118,13 +115,24 @@ class PoseSensorMapper:
             return True
         return False
 
-    def _in_couch(self, x, y):
-        if x > -4.6 and x < -2 and y > -2.7 and y < 2.2:
+    def _in_obj(self, x, y):
+        # forklift
+        if x > -1.1 and x < 0.8 and y > -10 and y < -9:
             return True
-        return False
-
-    def _in_table(self, x, y):
-        if x > 0 and x < 1.7 and y > -1.2 and y < 1.3:
+        # boxes_low
+        if x > -2.9 and x < -0.7 and y > -8.9 and y < -5.5:
+            return True
+        # boxes_mid
+        if x > -2.8 and x < -0.1 and y > 1 and y < 6.6:
+            return True
+        # boxes high
+        if x > -2.5 and x < 1.4 and y > 7.1 and y < 10.2:
+            return True
+        # boxes top right
+        if x > 2.1 and x < 6.6 and y > 2.6 and y < 10.2:
+            return True
+        # scaffold
+        if x > 2.3 and x < 6.6 and y > -10 and y < 1.4:
             return True
         return False
 
@@ -159,7 +167,7 @@ def main():
     try:
         rospy.spin()
         print('Pickle dumped')
-        with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data.pkl', 'wb') as f:
+        with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data_warehouse.pkl', 'wb') as f:
             pickle.dump(mapping, f)
 
     except KeyboardInterrupt:
