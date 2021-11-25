@@ -31,7 +31,7 @@ class PoseSensorMapper:
 
         self.x = self.map_x_range[0]
         self.y = self.map_y_range[0]
-        self.step_size = 1
+        self.step_size = 3
 
         self.turning_mode = True
         self.turns = 16
@@ -46,17 +46,19 @@ class PoseSensorMapper:
 
         self.bridge = CvBridge()
 
-    def callback(self, laser_msg, image_msg):        
+    def callback(self, laser_msg, image_msg):
+        callback_ended = True     
         # laser ranges
         ranges = laser_msg.ranges
         # print(ranges)
 
         # camera image
         try:
-            cv_image = self.bridge.imgmsg_to_cv2(image_msg, "mono8")
+            cv_image = cv2.resize(self.bridge.imgmsg_to_cv2(image_msg, "mono8"), (320, 240), interpolation=cv2.INTER_AREA)
+            # cv_image = self.bridge.imgmsg_to_cv2(image_msg, "mono8")
         except CvBridgeError as e:
             print(e)
-        cv2.imshow("Image window", cv_image)
+        # cv2.imshow("Image window", cv_image)
         cv2.waitKey(3)
 
         ros_pose = self.get_state('turtlebot3_waffle_pi', '').pose
@@ -70,6 +72,7 @@ class PoseSensorMapper:
                 if self.legal_pos(next_x, next_y):
                     self.update_pose(next_x, next_y, 0)
                     self.turning_mode = True
+                    callback_ended = False
                     print('Robot moved to ', next_x, '\t', next_y)
                 self.x = next_x
                 self.y = next_y
@@ -80,29 +83,27 @@ class PoseSensorMapper:
                 if self.legal_pos(next_x, next_y):
                     self.update_pose(next_x, next_y, 0)
                     self.turning_mode = True
+                    callback_ended = False
                     print('Robot moved to ', next_x, '\t', next_y)
                 self.x = next_x
                 self.y = next_y
+
+            else:
+                rospy.signal_shutdown('Field mapped')
         
 
-        if self.turning_mode and self.x == round(ros_position.x, 2) and self.y == round(ros_position.y, 2):
+        if self.turning_mode and callback_ended and self.x == round(ros_position.x, 2) and self.y == round(ros_position.y, 2):
             if self.turns > 0:
-                self.update_pose(self.x, self.y, self.turns*22.5)
+                print('Picture taken at {}\t{}\t{}'.format(self.x, self.y, self.turns*22.5))
                 # im_str = '/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/' + str(self.x) + '_' + str(self.y) + '_' + str((self.turns*22.5)%360) + '.jpg'
-                # cv2.imwrite(im_str, cv_image)
-                print('Image captured')
-                mapping[(self.x, self.y, (self.turns*22.5)%360)] = ranges
-
+                mapping[(self.x, self.y, self.turns*22.5)] = (ranges, cv_image)
+                self.update_pose(self.x, self.y, (self.turns-1)*22.5)
                 self.turns -= 1
+                
+                
             if self.turns == 0:
                 self.turning_mode = False
                 self.turns = 16
-
-        # self.mapping[(self.x, self.y, )]
-        # print('Recorded frame\tx: ', self.x, '\ty: ', self.y, '\tyaw: ', (self.turns*22.5)%360)
-
-        # input('-')
-
 
 
         
