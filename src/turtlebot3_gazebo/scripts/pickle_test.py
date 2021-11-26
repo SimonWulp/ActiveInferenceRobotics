@@ -2,18 +2,15 @@ import pickle
 import cv2
 
 with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data_warehouse.pkl', 'rb') as f:
-    dict = pickle.load(f)
+    dict1 = pickle.load(f)
 
-print(len(dict))
-    
-ls = list(dict.values())
+with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data_warehouse_2.pkl', 'rb') as f:
+    dict2 = pickle.load(f)
 
-ls_images = [l[1] for l in ls]
+with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data_warehouse_3.pkl', 'rb') as f:
+    dict3 = pickle.load(f)
 
+dict = {**dict1, **dict2, **dict3}
 
-cv2.imshow('picture', ls_images[30])
-cv2.waitKey()
-
-# for i, im in enumerate(ls_images):
-#     cv2.imwrite(str(i) + '.jpg', im)
-#     cv2.waitKey(3)
+with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data_warehouse_tot.pkl', 'wb') as f:
+            pickle.dump(dict, f)

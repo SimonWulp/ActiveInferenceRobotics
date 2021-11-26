@@ -29,8 +29,11 @@ class PoseSensorMapper:
         self.map_x_range = (-4.2, 6.5)
         self.map_y_range = (-9.9, 10.1)
 
-        self.x = self.map_x_range[0]
-        self.y = self.map_y_range[0]
+        start_x = 1.8
+        start_y = -2.9
+
+        self.x = start_x
+        self.y = start_y
         self.step_size = 0.25
 
         self.turning_mode = True
@@ -61,8 +64,7 @@ class PoseSensorMapper:
         # cv2.imshow("Image window", cv_image)
         cv2.waitKey(3)
 
-        ros_pose = self.get_state('turtlebot3_waffle_pi', '').pose
-        ros_position = ros_pose.position
+        
 
         if not self.turning_mode:
             if self.x + self.step_size <= self.map_x_range[1]:
@@ -90,11 +92,16 @@ class PoseSensorMapper:
             else:
                 rospy.signal_shutdown('Field mapped')
         
-        if self.turning_mode and callback_ended and self.x == round(ros_position.x, 2) and self.y == round(ros_position.y, 2):
+        ros_pose = self.get_state('turtlebot3_waffle_pi', '').pose
+        ros_position = ros_pose.position
+        
+        print('Actual ROS pos: x: {:.6f}\ty: {:.6f}'.format(ros_position.x, ros_position.y, 6))
+
+        if self.turning_mode and callback_ended:
             if self.turns_left > 0:
                 # im_str = '/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/' + str(self.x) + '_' + str(self.y) + '_' + str((self.turns*22.5)%360) + '.jpg'
                 mapping[(self.x, self.y, self.turns_left*(360/self.turns))] = (ranges, cv_image)
-                print('Mapping made at {}\t{}\t{}'.format(self.x, self.y, self.turns_left*(360/self.turns)))
+                print('Mapping made at {}\t{}\t{}\n'.format(self.x, self.y, self.turns_left*(360/self.turns)))
                 self.update_pose(self.x, self.y, (self.turns_left-1)*(360/self.turns))
                 self.turns_left -= 1
                 
@@ -132,7 +139,7 @@ class PoseSensorMapper:
         if x > 2.1 and x < 6.6 and y > 2.6 and y < 10.2:
             return True
         # scaffold
-        if x > 2.3 and x < 6.6 and y > -10 and y < 1.4:
+        if x > 2.2 and x < 6.6 and y > -10 and y < 1.4:
             return True
         return False
 
@@ -167,7 +174,7 @@ def main():
     try:
         rospy.spin()
         print('Pickle dumped')
-        with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data_warehouse.pkl', 'wb') as f:
+        with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data_warehouse_3.pkl', 'wb') as f:
             pickle.dump(mapping, f)
 
     except KeyboardInterrupt:
