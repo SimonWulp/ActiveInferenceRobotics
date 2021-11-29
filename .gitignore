@@ -1,1 +1,4 @@
 src/turtlebot3_gazebo/scripts/data
+src/turtlebot3_gazebo/scripts/old
+src/turtlebot3_gazebo/scripts/vscode
+*.old
