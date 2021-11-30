@@ -1,0 +1,17 @@
+simon@LinuxSimon:~/catkin_ws$ python3 -u "/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/decoder_train.py"
+Device:  cuda
+====> Epoch: 0 Average loss: 0.1775
+====> Epoch: 1 Average loss: 0.1769
+====> Epoch: 2 Average loss: 0.1769
+====> Epoch: 3 Average loss: 0.1769
+====> Epoch: 4 Average loss: 0.1769
+[4679.859099121094, 4665.105249023438, 4664.921960449219, 4664.864943847656, 4664.841940917969]
+
+simon@LinuxSimon:~/catkin_ws$ python3 -u "/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/decoder_train.py"
+Device:  cuda
+====> Epoch: 0 Average loss: 0.1885
+====> Epoch: 1 Average loss: 0.1874
+====> Epoch: 2 Average loss: 0.1872
+====> Epoch: 3 Average loss: 0.1871
+====> Epoch: 4 Average loss: 0.1870
+[2132.5950048828126, 2119.717548828125, 2117.0832055664064, 2115.998625488281, 2115.63197265625]

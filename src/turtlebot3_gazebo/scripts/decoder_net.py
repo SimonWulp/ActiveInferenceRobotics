@@ -1,4 +1,6 @@
 from torch import nn
+from torch.utils.data import Dataset
+import pickle
 
 # https://github.com/pl-robotdecision/pixel-aif/blob/master/nao_simulation/catkin_ws/src/my_executables/scripts/Conv_decoder_model/conv_decoder.py
 class Net(nn.Module):
@@ -39,3 +41,27 @@ class Net(nn.Module):
         x = x.view(-1, 8, 20, 15)
         x = self.conv_layers(x)
         return x
+
+class WarehouseDatasetImages:
+    def __init__(self):
+        with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data_warehouse_tensors.pkl', 'rb') as f:
+            self.data_set = pickle.load(f)
+
+        self.X_train = self.data_set[0]
+        # self.ranges = self.data_set[1]
+        self.Y_train = self.data_set[2]
+        self.Y_train = self.Y_train.reshape([-1, 1, self.Y_train.shape[2], self.Y_train.shape[1]])
+
+        self.length = self.X_train.shape[0]
+
+class OfficeDatasetImages:
+    def __init__(self):
+        with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data_office_tensors.pkl', 'rb') as f:
+            self.data_set = pickle.load(f)
+
+        self.X_train = self.data_set[0]
+        # self.ranges = self.data_set[1]
+        self.Y_train = self.data_set[2]
+        self.Y_train = self.Y_train.reshape([-1, 1, self.Y_train.shape[2], self.Y_train.shape[1]])
+
+        self.length = self.X_train.shape[0]
