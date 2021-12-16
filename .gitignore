@@ -4,4 +4,3 @@ src/turtlebot3_gazebo/scripts/old
 src/turtlebot3_gazebo/scripts/.vscode
 src/turtlebot3_gazebo/scripts/__pychache__
 *.old
-*.pyc
