@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 
-import sys
+import torch
 import math
 from typing import Set
 from genpy import message
@@ -18,26 +18,25 @@ from tf import transformations as trans
 import message_filters
 import pickle
 
-mapping = {}
-
 class PoseSensorMapper:
 
     def __init__(self):
         self.set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
         self.get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
 
+        # Map params
         self.map_x_range = (-4.2, 6.5)
-        self.map_y_range = (-9.9, 10.1)
+        self.map_y_range = (-9.9, 10.0)
 
-        start_x = 1.8
-        start_y = -2.9
+        self.step_size = 1.2
+        self.turn_step_size = 10
 
-        self.x = start_x
-        self.y = start_y
-        self.step_size = 0.25
+        # DO NOT CHANGE
+        self.x = self.map_x_range[0]
+        self.y = self.map_y_range[0]
 
+        self.turns = self.turn_step_size
         self.turning_mode = True
-        self.turns_left = self.turns = 16
         
         self.update_pose(self.x, self.y, 0)
 
@@ -48,6 +47,10 @@ class PoseSensorMapper:
         self.ts.registerCallback(self.callback)
 
         self.bridge = CvBridge()
+
+        self.t_poses = torch.empty((0, 3), dtype=torch.float32)
+        self.t_ranges = torch.empty((0, 360), dtype=torch.float32)
+        self.t_images = torch.empty((0, 240, 320), dtype=torch.uint8)
 
     def callback(self, laser_msg, image_msg):
         callback_ended = True     
@@ -63,8 +66,6 @@ class PoseSensorMapper:
             print(e)
         # cv2.imshow("Image window", cv_image)
         cv2.waitKey(3)
-
-        
 
         if not self.turning_mode:
             if self.x + self.step_size <= self.map_x_range[1]:
@@ -93,21 +94,22 @@ class PoseSensorMapper:
                 rospy.signal_shutdown('Field mapped')
         
         ros_pose = self.get_state('turtlebot3_waffle_pi', '').pose
-        ros_position = ros_pose.position
-        
-        print('Actual ROS pos: x: {:.6f}\ty: {:.6f}'.format(ros_position.x, ros_position.y, 6))
+        # print('Actual ROS pos: x: {:.6f}\ty: {:.6f}'.format(ros_pose.position.x, ros_pose.position.y, 6))
 
         if self.turning_mode and callback_ended:
-            if self.turns_left > 0:
+            if self.turns > 0:
                 # im_str = '/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/' + str(self.x) + '_' + str(self.y) + '_' + str((self.turns*22.5)%360) + '.jpg'
-                mapping[(self.x, self.y, self.turns_left*(360/self.turns))] = (ranges, cv_image)
-                print('Mapping made at {}\t{}\t{}\n'.format(self.x, self.y, self.turns_left*(360/self.turns)))
-                self.update_pose(self.x, self.y, (self.turns_left-1)*(360/self.turns))
-                self.turns_left -= 1
+                self.t_poses = torch.cat((self.t_poses, torch.tensor([self.x, self.y, self.turns*22.5], dtype=torch.float32).unsqueeze(0)))                
+                self.t_ranges = torch.cat((self.t_ranges, torch.tensor(ranges, dtype=torch.float32).unsqueeze(0)))
+                self.t_images = torch.cat((self.t_images, torch.tensor(cv_image, dtype=torch.uint8).unsqueeze(0)))
+                print('Mapping made at {}\t{}\t{}\n'.format(self.x, self.y, self.turns*(360/self.turn_step_size)))
                 
-            if self.turns_left == 0:
+                self.update_pose(self.x, self.y, (self.turns-1)*(360/self.turn_step_size))
+                self.turns -= 1
+                
+            if self.turns == 0:
                 self.turning_mode = False
-                self.turns_left = self.turns
+                self.turns = self.turn_step_size
 
 
         
@@ -173,10 +175,12 @@ def main():
 
     try:
         rospy.spin()
+        print('DONE')
+        full_pkl = (psm.t_poses, psm.t_ranges, psm.t_images)
+        with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data.pkl', 'wb') as f:
+            pickle.dump(full_pkl, f)
         print('Pickle dumped')
-        with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data_warehouse_3.pkl', 'wb') as f:
-            pickle.dump(mapping, f)
-
+    
     except KeyboardInterrupt:
         print("Shutting down")
     cv2.destroyAllWindows()
