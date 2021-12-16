@@ -245,7 +245,7 @@ class DataSet:
         # self.Y_rng_train = self.Y_rng_train.reshape([-1, 1, self.Y_rng_train.shape[1]])
 
         self.X_test = self.test_set[0]
-        self.Y_rng_test = self.test_set[1]
+        self.Y_rng_test = self.rm_inf(self.test_set[1])
         self.Y_img_test = self.test_set[2]
 
         self.length = self.X_train.shape[0]
