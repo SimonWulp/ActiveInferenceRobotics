@@ -65,7 +65,7 @@ class PoseSensorMapper:
         except CvBridgeError as e:
             print(e)
         # cv2.imshow("Image window", cv_image)
-        cv2.waitKey(3)
+        # cv2.waitKey(3)
 
         if not self.turning_mode:
             if self.x + self.step_size <= self.map_x_range[1]:
@@ -92,6 +92,7 @@ class PoseSensorMapper:
 
             else:
                 rospy.signal_shutdown('Field mapped')
+                print("Entire environment is mapped.")
         
         ros_pose = self.get_state('turtlebot3_waffle_pi', '').pose
         # print('Actual ROS pos: x: {:.6f}\ty: {:.6f}'.format(ros_pose.position.x, ros_pose.position.y, 6))
@@ -99,7 +100,7 @@ class PoseSensorMapper:
         if self.turning_mode and callback_ended:
             if self.turns > 0:
                 # im_str = '/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/' + str(self.x) + '_' + str(self.y) + '_' + str((self.turns*22.5)%360) + '.jpg'
-                self.t_poses = torch.cat((self.t_poses, torch.tensor([self.x, self.y, self.turns*22.5], dtype=torch.float32).unsqueeze(0)))                
+                self.t_poses = torch.cat((self.t_poses, torch.tensor([self.x, self.y, (360/self.turn_step_size)], dtype=torch.float32).unsqueeze(0)))                
                 self.t_ranges = torch.cat((self.t_ranges, torch.tensor(ranges, dtype=torch.float32).unsqueeze(0)))
                 self.t_images = torch.cat((self.t_images, torch.tensor(cv_image, dtype=torch.uint8).unsqueeze(0)))
                 print('Mapping made at {}\t{}\t{}\n'.format(self.x, self.y, self.turns*(360/self.turn_step_size)))

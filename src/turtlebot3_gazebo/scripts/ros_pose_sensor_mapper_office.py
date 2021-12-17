@@ -9,6 +9,7 @@ import torch
 from genpy import message
 import rospy
 import cv2
+import matplotlib.pyplot as plt
 from std_msgs.msg import String
 from sensor_msgs.msg import LaserScan, Image
 from gazebo_msgs.msg import ModelState 
@@ -20,6 +21,16 @@ from tf import transformations as trans
 import message_filters
 import pickle
 
+def plot_ranges(ranges):
+    ranges = ranges.detach().numpy().flatten()
+    ranges_x = []
+    ranges_y = []
+    for i, r in enumerate(ranges):
+        ranges_x.append(r * math.cos(math.radians(i + 1)))
+        ranges_y.append(r * math.sin(math.radians(i + 1)))
+
+    return ranges_x, ranges_y
+
 class PoseSensorMapper:
 
     def __init__(self):
@@ -30,8 +41,9 @@ class PoseSensorMapper:
         self.map_x_range = (-4.5, 3.4)
         self.map_y_range = (-3.5, 3.4)
 
-        self.step_size = 0.8
-        self.turn_step_size = 10
+        self.step_size = 0.1
+        self.turn_step_size = 16
+        self.range_samples = 360
 
         # DO NOT CHANGE
         self.x = self.map_x_range[0]
@@ -39,6 +51,7 @@ class PoseSensorMapper:
 
         self.turns = self.turn_step_size
         self.turning_mode = True
+        self.mappings_made = 0
                 
         self.update_pose(self.x, self.y, 0)
 
@@ -51,23 +64,22 @@ class PoseSensorMapper:
         self.bridge = CvBridge()
 
         self.t_poses = torch.empty((0, 3), dtype=torch.float32)
-        self.t_ranges = torch.empty((0, 360), dtype=torch.float32)
-        self.t_images = torch.empty((0, 240, 320), dtype=torch.uint8)
+        self.t_ranges = torch.empty((0, self.range_samples), dtype=torch.float32)
+        self.t_images = torch.empty((0, 120, 240), dtype=torch.uint8)
 
     def callback(self, laser_msg, image_msg):
         callback_ended = True     
         # laser ranges
         ranges = laser_msg.ranges
-        # print(ranges)
 
         # camera image
         try:
-            cv_image = cv2.resize(self.bridge.imgmsg_to_cv2(image_msg, "mono8"), (320, 240), interpolation=cv2.INTER_AREA)
+            cv_image = cv2.resize(self.bridge.imgmsg_to_cv2(image_msg, "mono8"), (240, 180), interpolation=cv2.INTER_AREA)[:120]
             # cv_image = self.bridge.imgmsg_to_cv2(image_msg, "mono8")
         except CvBridgeError as e:
             print(e)
         # cv2.imshow("Image window", cv_image)
-        cv2.waitKey(3)
+        # cv2.waitKey(3)
 
         if not self.turning_mode:
             if self.x + self.step_size <= self.map_x_range[1]:
@@ -94,6 +106,7 @@ class PoseSensorMapper:
 
             else:
                 rospy.signal_shutdown('Field mapped')
+                print("Entire environment is mapped.")
 
         ros_pose = self.get_state('turtlebot3_waffle_pi', '').pose
         # print('Actual ROS pos: x: {:.6f}\ty: {:.6f}'.format(ros_pose.position.x, ros_pose.position.y, 6))
@@ -102,10 +115,17 @@ class PoseSensorMapper:
         if self.turning_mode and callback_ended:
             if self.turns > 0:
                 # im_str = '/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/' + str(self.x) + '_' + str(self.y) + '_' + str((self.turns*22.5)%360) + '.jpg'
-                self.t_poses = torch.cat((self.t_poses, torch.tensor([self.x, self.y, self.turns*22.5], dtype=torch.float32).unsqueeze(0)))                
+                self.t_poses = torch.cat((self.t_poses, torch.tensor([self.x, self.y, self.turns*(360/self.turn_step_size)], dtype=torch.float32).unsqueeze(0)))                
                 self.t_ranges = torch.cat((self.t_ranges, torch.tensor(ranges, dtype=torch.float32).unsqueeze(0)))
                 self.t_images = torch.cat((self.t_images, torch.tensor(cv_image, dtype=torch.uint8).unsqueeze(0)))
                 print('Mapping made at {}\t{}\t{}'.format(self.x, self.y, self.turns*(360/self.turn_step_size)))
+
+                self.mappings_made += 1
+                if self.mappings_made % 1000 == 0:
+                    full_pkl = (self.t_poses, self.t_ranges, self.t_images)
+                    with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data.pkl', 'wb') as f:
+                        pickle.dump(full_pkl, f)
+                    print('Checkpoint pickle dumped')
 
                 self.update_pose(self.x, self.y, (self.turns-1)*(360/self.turn_step_size))
                 self.turns -= 1
@@ -169,7 +189,7 @@ def main():
         full_pkl = (psm.t_poses, psm.t_ranges, psm.t_images)
         with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/data.pkl', 'wb') as f:
             pickle.dump(full_pkl, f)
-        print('Pickle dumped')
+        print('Final pickle dumped')
 
 
     except KeyboardInterrupt:
