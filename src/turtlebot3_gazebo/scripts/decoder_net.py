@@ -230,36 +230,37 @@ class DataSet:
         else:
             raise ValueError('Please enter a valid category.')
         
-        self.pose = self.data_set[0]
-        self.range = self.data_set[1]
-        self.image = self.data_set[2]
-
-        self.t = torch.tensor([self.pose, self.range])
-
-        # self.X_train = self.train_set[0]
-        # self.Y_rng_train = self.rm_inf(self.train_set[1])
-        # self.Y_img_train = self.train_set[2]
-
-        # self.Y_img_train = self.Y_img_train.reshape([-1, 1, self.Y_img_train.shape[1], self.Y_img_train.shape[2]])
-        # self.Y_rng_train = self.Y_rng_train.unsqueeze(1)
-        # # self.Y_rng_train = self.Y_rng_train.reshape([-1, 1, self.Y_rng_train.shape[1]])
-
-        # self.X_test = self.test_set[0]
-        # self.Y_rng_test = self.rm_inf(self.test_set[1])
-        # self.Y_img_test = self.test_set[2]
-
+        self.train, self.test = self.shuffle_and_split(self.data_set, 0.75)
         self.length = self.data_set[0].shape[0]
 
-    @staticmethod
-    def shuffle_unison(a, b):
-        assert a.shape[0] == len(b)
-        p = np.random.permutation(len(b))
-        return a[p], b[p]
+    # shuffle dataset and split into train and test set
+    def shuffle_and_split(self, data, ratio):
+        assert data[0].shape[0] == data[1].shape[0] == data[2].shape[0], "Dataset tensors are not of equal length."
+        
+        ran_ids = torch.randperm(data[0].shape[0])
+        ratio_id = int(data[0].shape[0] * ratio)
+
+        pose, rng, img = data
+
+        train = (
+            pose[ran_ids][ratio_id:],
+            rng[ran_ids][ratio_id:],
+            img[ran_ids][ratio_id:]
+        )
+        test = (
+            pose[ran_ids][:ratio_id],
+            rng[ran_ids][:ratio_id],
+            img[ran_ids][:ratio_id]
+        )
+
+        return train, test
+        
 
     def rm_inf(self, a):
         a[a == float("Inf")] = 15
         return a
+    
 
 if __name__ == "__main__":
     data_set = DataSet('warehouse')
-    print(data_set.t)
+    print(data_set.train[0])
