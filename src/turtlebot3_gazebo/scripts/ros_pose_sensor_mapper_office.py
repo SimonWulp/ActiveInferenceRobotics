@@ -1,35 +1,18 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 
-import sys
 import math
 from typing import Set
-
 import torch
-from genpy import message
 import rospy
 import cv2
-import matplotlib.pyplot as plt
-from std_msgs.msg import String
 from sensor_msgs.msg import LaserScan, Image
 from gazebo_msgs.msg import ModelState 
 from gazebo_msgs.srv import SetModelState, GetModelState
-from nav_msgs.msg import Odometry
 from cv_bridge import CvBridge, CvBridgeError
-from PIL import Image as ImagePIL
 from tf import transformations as trans
 import message_filters
 import pickle
-
-def plot_ranges(ranges):
-    ranges = ranges.detach().numpy().flatten()
-    ranges_x = []
-    ranges_y = []
-    for i, r in enumerate(ranges):
-        ranges_x.append(r * math.cos(math.radians(i + 1)))
-        ranges_y.append(r * math.sin(math.radians(i + 1)))
-
-    return ranges_x, ranges_y
 
 class PoseSensorMapper:
 
@@ -75,7 +58,6 @@ class PoseSensorMapper:
         # camera image
         try:
             cv_image = cv2.resize(self.bridge.imgmsg_to_cv2(image_msg, "mono8"), (240, 180), interpolation=cv2.INTER_AREA)[:120]
-            # cv_image = self.bridge.imgmsg_to_cv2(image_msg, "mono8")
         except CvBridgeError as e:
             print(e)
         # cv2.imshow("Image window", cv_image)
@@ -108,9 +90,8 @@ class PoseSensorMapper:
                 rospy.signal_shutdown('Field mapped')
                 print("Entire environment is mapped.")
 
-        ros_pose = self.get_state('turtlebot3_waffle_pi', '').pose
+        # ros_pose = self.get_state('turtlebot3_waffle_pi', '').pose
         # print('Actual ROS pos: x: {:.6f}\ty: {:.6f}'.format(ros_pose.position.x, ros_pose.position.y, 6))
-
 
         if self.turning_mode and callback_ended:
             if self.turns > 0:
@@ -134,7 +115,6 @@ class PoseSensorMapper:
                 self.turning_mode = False
                 self.turns = self.turn_step_size
 
-        
     def legal_pos(self, x, y):
         if self._in_field(x, y) and not self._in_obj(x, y):
             return True
@@ -146,6 +126,7 @@ class PoseSensorMapper:
             return True
         return False
 
+    # edit for objects in env
     def _in_obj(self, x, y):
         # couch
         if x > -4.6 and x < -2 and y > -2.7 and y < 2.2:

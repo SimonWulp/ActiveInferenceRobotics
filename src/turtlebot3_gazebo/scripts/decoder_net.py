@@ -220,35 +220,35 @@ class DataSet:
         self.cat = cat
 
         if self.cat == 'warehouse':
-            with open(DataSet.LOAD_PATH + "data_warehouse_train.pkl", 'rb') as f:
-                self.train_set = pickle.load(f)
-
-            with open(DataSet.LOAD_PATH + "data_warehouse_test.pkl", 'rb') as f:
-                self.test_set = pickle.load(f)
+            with open(DataSet.LOAD_PATH + "data_warehouse.pkl", 'rb') as f:
+                self.data_set = pickle.load(f)
 
         elif self.cat == 'office':
-            with open(DataSet.LOAD_PATH + "data_office_train.pkl", 'rb') as f:
-                self.train_set = pickle.load(f)
-
-            with open(DataSet.LOAD_PATH + "data_office_test.pkl", 'rb') as f:
-                self.test_set = pickle.load(f)
+            with open(DataSet.LOAD_PATH + "data_office.pkl", 'rb') as f:
+                self.data_set = pickle.load(f)
         
         else:
             raise ValueError('Please enter a valid category.')
         
-        self.X_train = self.train_set[0]
-        self.Y_rng_train = self.rm_inf(self.train_set[1])
-        self.Y_img_train = self.train_set[2]
+        self.pose = self.data_set[0]
+        self.range = self.data_set[1]
+        self.image = self.data_set[2]
 
-        self.Y_img_train = self.Y_img_train.reshape([-1, 1, self.Y_img_train.shape[1], self.Y_img_train.shape[2]])
-        self.Y_rng_train = self.Y_rng_train.unsqueeze(1)
-        # self.Y_rng_train = self.Y_rng_train.reshape([-1, 1, self.Y_rng_train.shape[1]])
+        self.t = torch.tensor([self.pose, self.range])
 
-        self.X_test = self.test_set[0]
-        self.Y_rng_test = self.rm_inf(self.test_set[1])
-        self.Y_img_test = self.test_set[2]
+        # self.X_train = self.train_set[0]
+        # self.Y_rng_train = self.rm_inf(self.train_set[1])
+        # self.Y_img_train = self.train_set[2]
 
-        self.length = self.X_train.shape[0]
+        # self.Y_img_train = self.Y_img_train.reshape([-1, 1, self.Y_img_train.shape[1], self.Y_img_train.shape[2]])
+        # self.Y_rng_train = self.Y_rng_train.unsqueeze(1)
+        # # self.Y_rng_train = self.Y_rng_train.reshape([-1, 1, self.Y_rng_train.shape[1]])
+
+        # self.X_test = self.test_set[0]
+        # self.Y_rng_test = self.rm_inf(self.test_set[1])
+        # self.Y_img_test = self.test_set[2]
+
+        self.length = self.data_set[0].shape[0]
 
     @staticmethod
     def shuffle_unison(a, b):
@@ -257,9 +257,9 @@ class DataSet:
         return a[p], b[p]
 
     def rm_inf(self, a):
-        a[a == float("Inf")] = 10
+        a[a == float("Inf")] = 15
         return a
 
 if __name__ == "__main__":
-    data_set = DataSet('office')
-    print(data_set.length)
+    data_set = DataSet('warehouse')
+    print(data_set.t)
