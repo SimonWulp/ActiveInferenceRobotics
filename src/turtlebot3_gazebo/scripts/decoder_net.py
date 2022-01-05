@@ -18,7 +18,7 @@ class ImageNet(nn.Module):
         self.ff_layers = nn.Sequential(
             nn.Linear(3, 512),
             nn.ReLU(),
-            nn.Linear(512, 8 * 15 * 8), # 2400 neurons
+            nn.Linear(512, 8 * 15 * 8), # 960 neurons
             nn.ReLU()
         )
 
@@ -119,41 +119,35 @@ class RangeNet(nn.Module):
 
     def __init__(self):
         super(RangeNet, self).__init__()
-        self.ff_layers = nn.Sequential(
-            nn.Linear(3, 45),
+
+        self.layers = nn.Sequential(
+            nn.Linear(2, 45),
             nn.ReLU(),
             nn.Linear(45, 90),
-            nn.ReLU()
-        )
-
-        self.conv_layers = nn.Sequential(
+            nn.ReLU(),
+            # shape 1 * 90
+            nn.ConvTranspose1d(1, 1, 4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv1d(1, 1, 1, stride=1, padding=0),
+            nn.ReLU(),
             # shape 1 * 180
             nn.ConvTranspose1d(1, 1, 4, stride=2, padding=1),
             nn.ReLU(),
             nn.Conv1d(1, 1, 1, stride=1, padding=0),
-            nn.ReLU(),
-            # shape 1 * 360
-            nn.ConvTranspose1d(1, 1, 4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv1d(1, 1, 1, stride=1, padding=0),
             nn.ReLU()
-            # shape 1 * 720
+            # shape 1 * 360
         )
 
-
     def forward(self, x):
-        x = self.ff_layers(x)
-        x = x.view(-1, 1, 90)
-        x = self.conv_layers(x)
+        x = self.layers(x)
         return x
-
 
     @staticmethod
     def train_net(net, loader, device, net_id, max_epochs=100):
         print("Starting training.")
         net.to(device)
-        optimizer = optim.Adam(net.parameters(), lr=0.001)
-        # scheduler = StepLR(optimizer, step_size=2000, gamma=0.95)
+        optimizer = optim.Adam(net.parameters(), lr=0.002)
+        scheduler = StepLR(optimizer, step_size=200, gamma=0.95)
         criterion = nn.L1Loss()
 
         epoch_loss = []
@@ -177,7 +171,7 @@ class RangeNet(nn.Module):
                 cur_batch_loss = np.append(cur_batch_loss, [loss])
                 batch_loss = np.append(batch_loss, [loss])
 
-            # scheduler.step()
+            scheduler.step()
 
             epoch_loss = np.append(epoch_loss, [np.mean(cur_batch_loss)])
 
@@ -209,55 +203,3 @@ class RangeNet(nn.Module):
     #         cur_val_loss = np.append(cur_val_loss, [loss])
 
     #     return np.mean(cur_val_loss)
-
-class DataLoaderWrapper():
-    def __init__(self, full_path, batch_size=200, type='rng'):
-        with open(full_path, 'rb') as f:
-            data = pickle.load(f)
-
-        self.train_data, self.test_data = self.shuffle_split_dev(data, 0.85, type)
-
-        if type=='rng':
-            self.train_set = TensorDataset(self.train_data[0], self.normalize(self.train_data[1]))
-            self.test_set = TensorDataset(self.test_data[0], self.normalize(self.test_data[1]))
-        else:
-            self.train_set = TensorDataset(self.train_data[0], self.train_data[1])
-            self.test_set = TensorDataset(self.test_data[0], self.test_data[1])
-
-        self.train_loader = DataLoader(self.train_set, batch_size=batch_size, shuffle=True)
-        self.test_loader = DataLoader(self.test_set, batch_size=1, shuffle=False)
-
-    def get_max_min(self, ranges):
-        return ranges.max().item(), ranges.min().item()
-
-    # shuffle dataset and split into train and test set
-    def shuffle_split_dev(self, data, ratio, type):
-        assert data[0].shape[0] == data[1].shape[0], "Dataset tensors are not of equal length."
-        
-        ran_ids = torch.randperm(data[0].shape[0])
-        ratio_id = int(data[0].shape[0] * ratio)
-
-        pose, rng, img = data
-        x = pose
-        if type=='rng':
-            y = rng
-        elif type=='img':
-            y = img
-        else:
-            raise ValueError("Wrong type entered.")
-
-        train = (
-            x[ran_ids][ratio_id:],
-            y[ran_ids][ratio_id:],
-        )
-        test = (
-            x[ran_ids][:ratio_id],
-            y[ran_ids][:ratio_id],
-        )
-
-        return train, test
-
-    def normalize(self, ranges):
-        ranges[ranges == float("Inf")] = 15
-        ranges = (ranges - ranges.min()) / (ranges.max() - ranges.min())
-        return ranges
