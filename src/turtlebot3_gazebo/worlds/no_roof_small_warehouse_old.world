@@ -1,3 +1,4 @@
+<?xml version="1.0" ?>
 <sdf version='1.7'>
   <world name='default'>
     <gravity>0 0 -9.8</gravity>
@@ -1641,7 +1642,7 @@
     </light>
     <gui fullscreen='0'>
       <camera name='user_camera'>
-        <pose>0.73514 -2.12377 26.7021 0 1.5698 3.14024</pose>
+        <pose>18.7906 4.45342 43.818 0 1.1342 -3.06701</pose>
         <view_controller>orbit</view_controller>
         <projection_type>perspective</projection_type>
       </camera>
@@ -1698,10 +1699,10 @@
       </spot>
     </light>
     <state world_name='default'>
-      <sim_time>391 241000000</sim_time>
-      <real_time>133 824353791</real_time>
-      <wall_time>1639768289 951087293</wall_time>
-      <iterations>128308</iterations>
+      <sim_time>262 933000000</sim_time>
+      <real_time>264 437885085</real_time>
+      <wall_time>1636556571 908118644</wall_time>
+      <iterations>262933</iterations>
       <model name='aws_robomaker_warehouse_Bucket_01_020'>
         <pose>0.433449 9.63171 0 0 0 -1.56316</pose>
         <scale>1 1 1</scale>
@@ -1783,7 +1784,7 @@
         </link>
       </model>
       <model name='aws_robomaker_warehouse_ClutteringC_01_029'>
-        <pose>5.38424 6.13715 0 0 0 -3.13319</pose>
+        <pose>5.38424 6.13715 0 0 -0 -3.13319</pose>
         <scale>1 1 1</scale>
         <link name='aws_robomaker_warehouse_ClutteringC_01::link'>
           <pose>5.38424 6.13715 0 0 -0 -3.13319</pose>
@@ -1793,7 +1794,7 @@
         </link>
       </model>
       <model name='aws_robomaker_warehouse_ClutteringC_01_030'>
-        <pose>3.236 6.13715 0 0 0 -3.13319</pose>
+        <pose>3.236 6.13715 0 0 -0 -3.13319</pose>
         <scale>1 1 1</scale>
         <link name='aws_robomaker_warehouse_ClutteringC_01::link'>
           <pose>3.236 6.13715 0 0 -0 -3.13319</pose>
@@ -1952,34 +1953,6 @@
           <wrench>0 0 0 0 -0 0</wrench>
         </link>
       </model>
-      <model name='brick_walls'>
-        <pose>0.065 -4.37 0 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='Wall_16'>
-          <pose>0.065 1.41 0 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-        <link name='Wall_31'>
-          <pose>-6.86 -4.39 0 0 0 -1.5708</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-        <link name='Wall_33'>
-          <pose>0.065 -10.19 0 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-        <link name='Wall_37'>
-          <pose>6.469 -4.35 0 0 -0 1.5708</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
       <light name='Warehouse_CeilingLight_003'>
         <pose>0 0 9 0 -0 0</pose>
       </light>
@@ -1990,189 +1963,5 @@
         <pose>0 5 15 0 -0 0</pose>
       </light>
     </state>
-    <model name='brick_walls'>
-      <pose>0.065 -4.37 0 0 -0 0</pose>
-      <link name='Wall_16'>
-        <collision name='Wall_16_Collision'>
-          <geometry>
-            <box>
-              <size>14 0.15 8.5</size>
-            </box>
-          </geometry>
-          <pose>0 0 4.25 0 -0 0</pose>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
-        <visual name='Wall_16_Visual'>
-          <pose>0 0 4.25 0 -0 0</pose>
-          <geometry>
-            <box>
-              <size>14 0.15 8.5</size>
-            </box>
-          </geometry>
-          <material>
-            <script>
-              <uri>file://media/materials/scripts/gazebo.material</uri>
-              <name>Gazebo/Bricks</name>
-            </script>
-            <ambient>1 1 1 1</ambient>
-          </material>
-          <meta>
-            <layer>0</layer>
-          </meta>
-        </visual>
-        <pose>0 5.78 0 0 -0 0</pose>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <link name='Wall_31'>
-        <collision name='Wall_31_Collision'>
-          <geometry>
-            <box>
-              <size>11.75 0.15 8.5</size>
-            </box>
-          </geometry>
-          <pose>0 0 4.25 0 -0 0</pose>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
-        <visual name='Wall_31_Visual'>
-          <pose>0 0 4.25 0 -0 0</pose>
-          <geometry>
-            <box>
-              <size>11.75 0.15 8.5</size>
-            </box>
-          </geometry>
-          <material>
-            <script>
-              <uri>file://media/materials/scripts/gazebo.material</uri>
-              <name>Gazebo/Bricks</name>
-            </script>
-            <ambient>1 1 1 1</ambient>
-          </material>
-          <meta>
-            <layer>0</layer>
-          </meta>
-        </visual>
-        <pose>-6.925 -0.02 0 0 -0 -1.5708</pose>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <link name='Wall_33'>
-        <collision name='Wall_33_Collision'>
-          <geometry>
-            <box>
-              <size>14 0.15 8.5</size>
-            </box>
-          </geometry>
-          <pose>0 0 4.25 0 -0 0</pose>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
-        <visual name='Wall_33_Visual'>
-          <pose>0 0 4.25 0 -0 0</pose>
-          <geometry>
-            <box>
-              <size>14 0.15 8.5</size>
-            </box>
-          </geometry>
-          <material>
-            <script>
-              <uri>file://media/materials/scripts/gazebo.material</uri>
-              <name>Gazebo/Bricks</name>
-            </script>
-            <ambient>1 1 1 1</ambient>
-          </material>
-          <meta>
-            <layer>0</layer>
-          </meta>
-        </visual>
-        <pose>0 -5.82 0 0 -0 0</pose>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <link name='Wall_37'>
-        <collision name='Wall_37_Collision'>
-          <geometry>
-            <box>
-              <size>11.75 0.15 8.5</size>
-            </box>
-          </geometry>
-          <pose>0 0 4.25 0 -0 0</pose>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
-        <visual name='Wall_37_Visual'>
-          <pose>0 0 4.25 0 -0 0</pose>
-          <geometry>
-            <box>
-              <size>11.75 0.15 8.5</size>
-            </box>
-          </geometry>
-          <material>
-            <script>
-              <uri>file://media/materials/scripts/gazebo.material</uri>
-              <name>Gazebo/Bricks</name>
-            </script>
-            <ambient>1 1 1 1</ambient>
-          </material>
-          <meta>
-            <layer>0</layer>
-          </meta>
-        </visual>
-        <pose>6.404 0.02 0 0 -0 1.5708</pose>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <static>1</static>
-    </model>
   </world>
 </sdf>

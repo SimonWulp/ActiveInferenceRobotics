@@ -1,125 +1,102 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 
-import sys
 import math
 from typing import Set
-from genpy import message
+import torch
 import rospy
 import cv2
-from std_msgs.msg import String
 from sensor_msgs.msg import LaserScan, Image
 from gazebo_msgs.msg import ModelState 
 from gazebo_msgs.srv import SetModelState, GetModelState
-from nav_msgs.msg import Odometry
 from cv_bridge import CvBridge, CvBridgeError
-from PIL import Image as ImagePIL
 from tf import transformations as trans
 import message_filters
+import pickle
+import numpy as np
 
 class PoseSensorMapper:
 
-    def __init__(self):
+    def __init__(self, env):
+        self.env = env
+
+        if self.env == 'office':
+            self.map_x_range = (-4.5, 3.4)
+            self.map_y_range = (-3.3, 4.5)
+        elif self.env == 'warehouse':
+            self.map_x_range = (-4.2, 2.3)
+            self.map_y_range = (-9.8, 0.8)
+        elif self.env == 'outside':
+            self.map_x_range = (-5.5, 6.5)
+            self.map_y_range = (-5.0, 7.0)
+        else:
+            raise ValueError("Wrong env entered, {} is not a valid environment".format(self.env))
+
+        self.samples_goal = 1200
+        self.samples = 0
+
+        self.pose_data = np.ndarray((0, 3))
+        self.range_data = np.ndarray((0, 360))
+        self.image_data = np.ndarray((0, 3, 256, 256))
+                
         self.set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
         self.get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
-
-        self.map_x_range = (-4.5, 3.5)
-        self.map_y_range = (-3.5, 3.5)
-
-        self.x = self.map_x_range[0]
-        self.y = self.map_y_range[0]
-        self.step_size = 1
-
-        self.turning_mode = True
-        self.turns = 16
-        
-        self.update_pose(self.x, self.y, 0)
-
         self.laser_sub = message_filters.Subscriber("/scan", LaserScan)
         self.image_sub = message_filters.Subscriber("/camera/rgb/image_raw", Image)
-
         self.ts = message_filters.ApproximateTimeSynchronizer([self.laser_sub, self.image_sub], 10, 1)
         self.ts.registerCallback(self.callback)
-
         self.bridge = CvBridge()
 
-    def callback(self, laser_msg, image_msg):        
+
+    def callback(self, laser_msg, image_msg):
         # laser ranges
         ranges = laser_msg.ranges
-        print(ranges)
 
         # camera image
         try:
-            cv_image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
+            cv_image = cv2.resize(self.bridge.imgmsg_to_cv2(image_msg, "rgb8"), (256, 256)).transpose(2,0,1)
         except CvBridgeError as e:
             print(e)
-        cv2.imshow("Image window", cv_image)
-        cv2.waitKey(3)
 
-        ros_pos = self.get_state('turtlebot3_waffle_pi', '').pose.position
+        # go to new location
+        next_yaw = np.random.uniform(-np.pi, np.pi)
+        next_x = np.random.uniform(self.map_x_range[0], self.map_x_range[1])
+        next_y = np.random.uniform(self.map_y_range[0], self.map_y_range[1])
 
-        if not self.turning_mode:
-            if self.x + self.step_size <= self.map_x_range[1]:
-                next_x = self.x + self.step_size
-                next_y = self.y
-                if self.legal_pos(next_x, next_y):
-                    self.update_pose(next_x, next_y, 0)
-                    self.turning_mode = True
-                    print('Robot moved')
-                self.x = next_x
-                self.y = next_y
+        # if self.legal_pos(next_x, next_y):
+        self.update_pose(next_x, next_y, next_yaw)
 
-            elif self.y + self.step_size <= self.map_y_range[1]:
-                next_x = self.map_x_range[0]
-                next_y = self.y + self.step_size
-                if self.legal_pos(next_x, next_y):
-                    self.update_pose(next_x, next_y, 0)
-                    self.turning_mode = True
-                    print('Robot moved')
-                self.x = next_x
-                self.y = next_y
+        self.pose_data = np.append(self.pose_data, [[next_x, next_y, next_yaw]], axis=0)
+        self.range_data = np.append(self.range_data, [ranges], axis=0)
+        self.image_data = np.append(self.image_data, [cv_image], axis=0)
+
+        self.samples += 1
+
+        if self.samples % 100 == 0:
+            self.data = (self.pose_data, self.range_data, self.image_data)
+            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/outside_rotation_256_rgb8_1.pkl', 'wb') as f:
+                pickle.dump(self.data, f)
+
+            print('Pickle dumped at {} samples.'.format(self.samples))
+
+        if self.samples > self.samples_goal:
+            self.data = (self.pose_data, self.range_data, self.image_data)
+            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/outside_rotation_256_rgb8_1.pkl', 'wb') as f:
+                pickle.dump(self.data, f)
+            
+            print("Entire environment is mapped.")
+            rospy.signal_shutdown('Env mapped')
         
 
-        if self.turning_mode and self.x == round(ros_pos.x, 2) and self.y == round(ros_pos.y, 2):
-            if self.turns > 0:
-                self.update_pose(self.x, self.y, self.turns*22.5)
-                self.turns -= 1
-            if self.turns == 0:
-                self.turning_mode = False
-                self.turns = 16
-
-
-
-        
-    def legal_pos(self, x, y):
-        if self._in_field(x, y) and not self._in_couch(x, y) and not self._in_table(x, y):
-            return True
-        else:
-            return False
-
-    def _in_field(self, x, y):
-        if x >= self.map_x_range[0] and x <= self.map_x_range[1] and y >= self.map_y_range[0] and y <= self.map_y_range[1]:
-            return True
-        return False
-
-    def _in_couch(self, x, y):
-        if x > -4.6 and x < -2 and y > -2.7 and y < 2.2:
-            return True
-        return False
-
-    def _in_table(self, x, y):
-        if x > 0 and x < 1.7 and y > -1.2 and y < 1.3:
-            return True
-        return False
-
-    def update_pose(self, x, y, yaw_degrees):
+    
+    def update_pose(self, x, y, yaw):
         next_state = ModelState()
         next_state.model_name = 'turtlebot3_waffle_pi'
 
         next_state.pose.position.x = x
         next_state.pose.position.y = y
         
-        quaternion = self.yaw_to_quat(yaw_degrees)
+        quaternion = trans.quaternion_from_euler(0, 0, yaw)
         next_state.pose.orientation.x = quaternion[0]
         next_state.pose.orientation.y = quaternion[1]
         next_state.pose.orientation.z = quaternion[2]
@@ -127,26 +104,56 @@ class PoseSensorMapper:
 
         self.set_state(next_state)
 
-    def quat_to_yaw(quaternion):
-        ...
-        # ros_ori_quat = pose_msg.pose.pose.orientation
-        # ros_ori_euler = trans.euler_from_quaternion([ros_ori_quat.x, ros_ori_quat.y, ros_ori_quat.z, ros_ori_quat.w])
-        # ros_ori_yaw_deg = abs(math.degrees(ros_ori_euler[2]) % 360)
 
-    def yaw_to_quat(self, yaw_degrees):
-        yaw_radians = math.radians(yaw_degrees)
-        return trans.quaternion_from_euler(0, 0, yaw_radians)
+    def legal_pos(self, x, y):
+        if self._in_field(x, y) and not self._in_obj(x, y):
+            return True
+        else:
+            return False        
+
+    def _in_field(self, x, y):
+        if x >= self.map_x_range[0] and x <= self.map_x_range[1] and y >= self.map_y_range[0] and y <= self.map_y_range[1]:
+            return True
+        return False
+
+    # edit for objects in env
+    def _in_obj(self, x, y):
+        if self.env == 'office':
+            # couch
+            if x > -4.6 and x < -1.7 and y > -2.7 and y < 2.5:
+                return True
+            # table
+            if x > -0.1 and x < 1.9 and y > -1.4 and y < 1.4:
+                return True
+            # corner table
+            if x > -4.6 and x < -1.2 and y > 3.0 and y < 4.6:
+                return True
+            # corner desk
+            if x > 0.6 and x < 3.6 and y > 3.0 and y < 4.6:
+                return True
+            return False
+        
+        elif self.env == 'warehouse':
+            # forklift
+            if x > -1.1 and x < 0.8 and y > -10 and y < -9:
+                return True
+            # boxes_low
+            if x > -2.9 and x < -0.7 and y > -8.9 and y < -5.5:
+                return True
+
+        else:
+            raise ValueError("Wrong env entered, {} is not a valid environment".format(self.env))
 
 
 def main():
+    env = 'outside'
+    print("Starting mapping of env {}".format(env))
     rospy.init_node('pose_sensor_mapper', anonymous=True)
-    psm = PoseSensorMapper()
-
+    psm = PoseSensorMapper(env)
     try:
         rospy.spin()
     except KeyboardInterrupt:
         print("Shutting down")
-    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main()

@@ -1,2 +1,0 @@
-/o/office 0
-/w/warehouse 1

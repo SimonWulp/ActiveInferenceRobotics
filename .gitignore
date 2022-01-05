@@ -1,1 +1,8 @@
 src/turtlebot3_gazebo/scripts/data
+src/turtlebot3_gazebo/scripts/trained_conv_nets
+src/turtlebot3_gazebo/scripts/old
+src/turtlebot3_gazebo/scripts/losses
+src/turtlebot3_gazebo/scripts/.vscode
+src/turtlebot3_gazebo/scripts/__pycache__
+*.old
+*pyc
