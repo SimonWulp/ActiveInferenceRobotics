@@ -18,6 +18,9 @@ class FEP():
         self.a = np.empty((1, 2))
         self.a_dot = np.empty((1, 2))
 
+        self.dt = 0.02
+        self.a_clp = 1
+
     def get_visual_forward(self, inp):
         inp = torch.tensor(inp, dtype=torch.float, requires_grad=True)
         outp = self.decoder.forward(inp)
@@ -37,7 +40,7 @@ class FEP():
         ...
 
     def get_dF_da_vis(self, dF_dmu_vis):
-        return (-1) * dF_dmu_vis
+        return (-1) * dF_dmu_vis * self.dt
 
     def step(self):
         inp, outp = self.get_visual_forward(self.mu)
@@ -45,3 +48,16 @@ class FEP():
         self.pred_error = self.s_v - self.g_mu
 
         dF_dmu_vis = self.get_dF_dmu_vis(inp, outp)
+
+        if self.active_inference:
+            # dF/dmu with attractor:
+            mu_dot = dF_dmu_vis + self.get_df_dmu_att(inp, outp)
+        else:
+            mu_dot = dF_dmu_vis
+
+        self.mu = self.mu + self.dt * mu_dot
+
+        a_dot = self.get_dF_da_visual(dF_dmu_vis)
+        
+        self.a = self.a + self.dt * a_dot
+        self.a = np.clip(self.a, -self.a_clp, self.a_clp)
