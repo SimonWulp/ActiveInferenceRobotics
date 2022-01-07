@@ -1,5 +1,6 @@
 src/turtlebot3_gazebo/scripts/data
-src/turtlebot3_gazebo/scripts/trained_conv_nets
+src/turtlebot3_gazebo/scripts/trained_conv_nets/img
+src/turtlebot3_gazebo/scripts/trained_conv_nets/rng
 src/turtlebot3_gazebo/scripts/old
 src/turtlebot3_gazebo/scripts/losses
 src/turtlebot3_gazebo/scripts/.vscode

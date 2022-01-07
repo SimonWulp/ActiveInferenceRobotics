@@ -29,15 +29,17 @@ class PoseSensorMapper:
         elif self.env == 'outside':
             self.map_x_range = (-5.5, 6.5)
             self.map_y_range = (-5.0, 7.0)
+        elif self.env == 'shapes':
+            self.map_x_range = (-9.0, 9.0)
+            self.map_y_range = (-9.0, 4.0)
         else:
             raise ValueError("Wrong env entered, {} is not a valid environment".format(self.env))
 
-        self.samples_goal = 1200
+        self.samples_goal = 2500
         self.samples = 0
 
-        self.pose_data = np.ndarray((0, 3))
-        self.range_data = np.ndarray((0, 360))
-        self.image_data = np.ndarray((0, 3, 256, 256))
+        self.pose_data = np.ndarray((0, 2), dtype='f')
+        self.image_data = np.ndarray((0, 256, 256), dtype='f')
                 
         self.set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
         self.get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
@@ -47,41 +49,35 @@ class PoseSensorMapper:
         self.ts.registerCallback(self.callback)
         self.bridge = CvBridge()
 
-
     def callback(self, laser_msg, image_msg):
-        # laser ranges
-        ranges = laser_msg.ranges
+        # go to new location
+        next_yaw = 0.5 * np.pi
+        next_x = np.round(np.random.uniform(self.map_x_range[0], self.map_x_range[1]), 3)
+        next_y = np.round(np.random.uniform(self.map_y_range[0], self.map_y_range[1]), 3)
+        self.update_pose(next_x, next_y, next_yaw)
 
         # camera image
         try:
-            cv_image = cv2.resize(self.bridge.imgmsg_to_cv2(image_msg, "rgb8"), (256, 256)).transpose(2,0,1)
+            cv_image = cv2.resize(self.bridge.imgmsg_to_cv2(image_msg, "mono8")[:256], (256, 256)) / 255
         except CvBridgeError as e:
             print(e)
 
-        # go to new location
-        next_yaw = np.random.uniform(-np.pi, np.pi)
-        next_x = np.random.uniform(self.map_x_range[0], self.map_x_range[1])
-        next_y = np.random.uniform(self.map_y_range[0], self.map_y_range[1])
-
-        # if self.legal_pos(next_x, next_y):
-        self.update_pose(next_x, next_y, next_yaw)
-
-        self.pose_data = np.append(self.pose_data, [[next_x, next_y, next_yaw]], axis=0)
-        self.range_data = np.append(self.range_data, [ranges], axis=0)
+        # add pose and observation
+        self.pose_data = np.append(self.pose_data, [[next_x, next_y]], axis=0)
         self.image_data = np.append(self.image_data, [cv_image], axis=0)
 
         self.samples += 1
 
         if self.samples % 100 == 0:
-            self.data = (self.pose_data, self.range_data, self.image_data)
-            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/outside_rotation_256_rgb8_1.pkl', 'wb') as f:
+            self.data = (self.pose_data, self.image_data)
+            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_fixed_mono8_2_4.pkl', 'wb') as f:
                 pickle.dump(self.data, f)
 
             print('Pickle dumped at {} samples.'.format(self.samples))
 
-        if self.samples > self.samples_goal:
-            self.data = (self.pose_data, self.range_data, self.image_data)
-            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/outside_rotation_256_rgb8_1.pkl', 'wb') as f:
+        if self.samples >= self.samples_goal:
+            self.data = (self.pose_data, self.image_data)
+            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_fixed_mono8_2_4.pkl', 'wb') as f:
                 pickle.dump(self.data, f)
             
             print("Entire environment is mapped.")
@@ -146,7 +142,7 @@ class PoseSensorMapper:
 
 
 def main():
-    env = 'outside'
+    env = 'shapes'
     print("Starting mapping of env {}".format(env))
     rospy.init_node('pose_sensor_mapper', anonymous=True)
     psm = PoseSensorMapper(env)
