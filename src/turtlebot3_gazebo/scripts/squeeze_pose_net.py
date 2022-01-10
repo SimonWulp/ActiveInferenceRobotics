@@ -21,10 +21,10 @@ class Fire(nn.Module):
         x = torch.cat((y,z), 1)
         return x
 
-class SqueezeSegNetEncoder(nn.Module):
+class SqueezePoseNetEncoder(nn.Module):
 
-    def __init__(self, in_channels):
-        super(SqueezeSegNetEncoder, self).__init__()
+    def __init__(self, in_channels, out_classes):
+        super(SqueezePoseNetEncoder, self).__init__()
     
         self.feature_block1 = nn.Sequential(
             nn.Conv2d(in_channels, 96, kernel_size=7, stride=2),
@@ -47,13 +47,18 @@ class SqueezeSegNetEncoder(nn.Module):
         )
 
         self.classifier_conv = nn.Sequential(
-            nn.Conv2d(512, 1000, kernel_size=1),
+            nn.Conv2d(512, 3, kernel_size=1),
             nn.ReLU(inplace=True),
         )
 
         self.conv1 = nn.Conv2d(96, 96, kernel_size=3, stride=2)
         self.conv2 = nn.Conv2d(256, 256, kernel_size=3, stride=2)
         self.conv3 = nn.Conv2d(512, 512, kernel_size=3, stride=2)
+
+        self.fc = nn.Sequential(
+            nn.Linear(3 * 14 * 14, out_classes),
+            nn.ReLU()
+        )
 
     def forward(self, x):
         x = self.feature_block1(x)
@@ -64,6 +69,8 @@ class SqueezeSegNetEncoder(nn.Module):
         x = self.conv3(x)
         x = self.feature_block4(x)
         x = self.classifier_conv(x)
+        x = x.view(-1, 1, 3 * 14 * 14)
+        x = self.fc(x)
 
         return x
 
@@ -85,13 +92,18 @@ class FireDec(nn.Module):
         x = self.squeeze_activation(self.squeeze(x))
         return x
 
-class SqueezeSegNetDecoder(nn.Module):
+class SqueezePoseNetDecoder(nn.Module):
 
-    def __init__(self, out_classes):
-        super(SqueezeSegNetDecoder, self).__init__()
+    def __init__(self, out_channels, in_classes):
+        super(SqueezePoseNetDecoder, self).__init__()
+
+        self.fc = nn.Sequential(
+            nn.Linear(in_classes, 3 * 14 * 14),
+            nn.ReLU()
+        )
 
         self.inverse_classifier_conv = nn.Sequential(
-            nn.Conv2d(1000, 512, kernel_size=1),
+            nn.Conv2d(3, 512, kernel_size=1),
             nn.ReLU(inplace=True),
         )
 
@@ -113,15 +125,17 @@ class SqueezeSegNetDecoder(nn.Module):
         )
 
         self.inverse_feature_block1 = nn.Sequential(
-            nn.ConvTranspose2d(96, out_classes, kernel_size=10, stride=2, padding=1),
+            nn.ConvTranspose2d(96, out_channels, kernel_size=10, stride=2, padding=1),
         )
 
-        self.deconv1 = nn.ConvTranspose2d(512, 512, 3, 2)
-        self.deconv2 = nn.ConvTranspose2d(256, 256, 3, 2)
-        self.deconv3 = nn.ConvTranspose2d(96, 96, 3, 2)
+        self.deconv1 = nn.ConvTranspose2d(512, 512, kernel_size=3, stride=2)
+        self.deconv2 = nn.ConvTranspose2d(256, 256, kernel_size=3, stride=2)
+        self.deconv3 = nn.ConvTranspose2d(96, 96, kernel_size=3, stride=2)
 
 
     def forward(self, x):
+        x = self.fc(x)
+        x = x.view(-1, 3, 14, 14)
         x = self.inverse_classifier_conv(x)
         x = self.inverse_feature_block4(x)
         x = self.deconv1(x)
@@ -132,28 +146,15 @@ class SqueezeSegNetDecoder(nn.Module):
         x = self.inverse_feature_block1(x)
         return x
 
-class SqueezeSegNet(nn.Module):
+class SqueezePoseNet(nn.Module):
 
-    def __init__(self, in_channels, out_classes):
-        super(SqueezeSegNet, self).__init__()
+    def __init__(self, channels, classes):
+        super(SqueezePoseNet, self).__init__()
 
-        self.encoder = SqueezeSegNetEncoder(in_channels)
-        self.decoder = SqueezeSegNetDecoder(out_classes)
+        self.encoder = SqueezePoseNetEncoder(channels, classes)
+        self.decoder = SqueezePoseNetDecoder(channels, classes)
         
     def forward(self, x):
         x = self.encoder(x)
         x = self.decoder(x)
         return x
-
-
-if __name__ == "__main__":
-    net = SqueezeSegNet(3, 3)
-
-    img_in = torch.rand((1, 3, 244, 244))
-
-    latent = net.encoder.forward(img_in)
-
-    img_out = net.decoder.forward(latent)
-
-    print(latent.shape)
-    print(img_out.shape)

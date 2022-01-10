@@ -20,13 +20,7 @@ class PoseSensorMapper:
     def __init__(self, env):
         self.env = env
 
-        if self.env == 'office':
-            self.map_x_range = (-4.5, 3.4)
-            self.map_y_range = (-3.3, 4.5)
-        elif self.env == 'warehouse':
-            self.map_x_range = (-4.2, 2.3)
-            self.map_y_range = (-9.8, 0.8)
-        elif self.env == 'outside':
+        if self.env == 'outside':
             self.map_x_range = (-5.5, 6.5)
             self.map_y_range = (-5.0, 7.0)
         elif self.env == 'shapes':
@@ -99,46 +93,6 @@ class PoseSensorMapper:
         next_state.pose.orientation.w = quaternion[3]
 
         self.set_state(next_state)
-
-
-    def legal_pos(self, x, y):
-        if self._in_field(x, y) and not self._in_obj(x, y):
-            return True
-        else:
-            return False        
-
-    def _in_field(self, x, y):
-        if x >= self.map_x_range[0] and x <= self.map_x_range[1] and y >= self.map_y_range[0] and y <= self.map_y_range[1]:
-            return True
-        return False
-
-    # edit for objects in env
-    def _in_obj(self, x, y):
-        if self.env == 'office':
-            # couch
-            if x > -4.6 and x < -1.7 and y > -2.7 and y < 2.5:
-                return True
-            # table
-            if x > -0.1 and x < 1.9 and y > -1.4 and y < 1.4:
-                return True
-            # corner table
-            if x > -4.6 and x < -1.2 and y > 3.0 and y < 4.6:
-                return True
-            # corner desk
-            if x > 0.6 and x < 3.6 and y > 3.0 and y < 4.6:
-                return True
-            return False
-        
-        elif self.env == 'warehouse':
-            # forklift
-            if x > -1.1 and x < 0.8 and y > -10 and y < -9:
-                return True
-            # boxes_low
-            if x > -2.9 and x < -0.7 and y > -8.9 and y < -5.5:
-                return True
-
-        else:
-            raise ValueError("Wrong env entered, {} is not a valid environment".format(self.env))
 
 
 def main():
