@@ -3,74 +3,90 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Fire(nn.Module):
-
-    def __init__(self, inplanes, squeeze_planes, expand1x1_planes, expand3x3_planes):
-        super(Fire, self).__init__()
+    def __init__(self, inplanes: int, squeeze_planes: int, expand1x1_planes: int, expand3x3_planes: int) -> None:
+        super().__init__()
         self.inplanes = inplanes
-        self.squeeze = nn.Conv2d(inplanes, squeeze_planes, kernel_size=1)
-        self.squeeze_activation = nn.ReLU(inplace=True)
-        self.expand1x1 = nn.Conv2d(squeeze_planes, expand1x1_planes, kernel_size=1)
-        self.expand1x1_activation = nn.ReLU(inplace=True)
-        self.expand3x3 = nn.Conv2d(squeeze_planes, expand3x3_planes, kernel_size=3, padding=1)
-        self.expand3x3_activation = nn.ReLU(inplace=True)
+        
+        self.squeeze = nn.Sequential(
+            nn.Conv2d(inplanes, squeeze_planes, kernel_size=1),
+            nn.BatchNorm2d(squeeze_planes),
+            nn.LeakyReLU(inplace=True)
+        )
 
-    def forward(self, x):
-        x = self.squeeze_activation(self.squeeze(x))
-        y = self.expand1x1_activation(self.expand1x1(x))
-        z = self.expand3x3_activation(self.expand3x3(x))
-        x = torch.cat((y,z), 1)
-        return x
+        self.expand1x1 = nn.Sequential(
+            nn.Conv2d(squeeze_planes, expand1x1_planes, kernel_size=1),
+            nn.BatchNorm2d(expand1x1_planes),
+            nn.LeakyReLU(inplace=True)
+        )
+
+        self.expand3x3 = nn.Sequential(
+            nn.Conv2d(squeeze_planes, expand3x3_planes, kernel_size=3, padding=1),
+            nn.BatchNorm2d(expand3x3_planes),
+            nn.LeakyReLU(inplace=True)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.squeeze(x)
+        return torch.cat(
+            [self.expand1x1(x), self.expand3x3(x)], 1
+        )
 
 class SqueezePoseNetEncoder(nn.Module):
 
-    def __init__(self, in_channels, out_classes):
+    def __init__(self, dropout=0.5):
         super(SqueezePoseNetEncoder, self).__init__()
     
-        self.feature_block1 = nn.Sequential(
-            nn.Conv2d(in_channels, 96, kernel_size=7, stride=2),
-            nn.ReLU(inplace=True),
-        )
-
-        self.feature_block2 = nn.Sequential(
+        self.squeeze = nn.Sequential(
+            # conv1
+            nn.Conv2d(1, 96, kernel_size=7, stride=2),
+            nn.BatchNorm2d(96),
+            nn.LeakyReLU(inplace=True),
+            # pool1
+            nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True),
+            # fire2 & concat
             Fire(96, 16, 64, 64),
+            # fire3 & concat
             Fire(128, 16, 64, 64),
+            # fire4 & concat
             Fire(128, 32, 128, 128),
-        )
-        self.feature_block3 = nn.Sequential(
+            # pool4
+            nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True),
+            # frie5 & concat
             Fire(256, 32, 128, 128),
+            # fire6 & concat
             Fire(256, 48, 192, 192),
+            # fire7 & concat
             Fire(384, 48, 192, 192),
+            # fire8 & concat
             Fire(384, 64, 256, 256),
-        )
-        self.feature_block4 = nn.Sequential(
+            # pool8
+            nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True),
+            # fire9 & concat
             Fire(512, 64, 256, 256),
+            # drop9
+            nn.Dropout(p=dropout), 
+            # conv_final
+            nn.Conv2d(512, 1000, kernel_size=1),
+            nn.BatchNorm2d(1000),
+            nn.LeakyReLU(inplace=True), 
+            # pool10
+            nn.AdaptiveAvgPool2d((1, 1))
         )
 
-        self.classifier_conv = nn.Sequential(
-            nn.Conv2d(512, 3, kernel_size=1),
-            nn.ReLU(inplace=True),
-        )
-
-        self.conv1 = nn.Conv2d(96, 96, kernel_size=3, stride=2)
-        self.conv2 = nn.Conv2d(256, 256, kernel_size=3, stride=2)
-        self.conv3 = nn.Conv2d(512, 512, kernel_size=3, stride=2)
-
-        self.fc = nn.Sequential(
-            nn.Linear(3 * 14 * 14, out_classes),
-            nn.ReLU()
+        self.pose = nn.Sequential(
+            # fc11
+            nn.Linear(1000, 500),
+            nn.LeakyReLU(),
+            # position x
+            nn.Linear(500, 2),
+            nn.LeakyReLU()
         )
 
     def forward(self, x):
-        x = self.feature_block1(x)
-        x = self.conv1(x)
-        x = self.feature_block2(x)
-        x = self.conv2(x)
-        x = self.feature_block3(x)
-        x = self.conv3(x)
-        x = self.feature_block4(x)
-        x = self.classifier_conv(x)
-        x = x.view(-1, 1, 3 * 14 * 14)
-        x = self.fc(x)
+
+        x = self.squeeze(x)
+        x = x.view(-1, 1, 1000)
+        x = self.pose(x)
 
         return x
 
@@ -158,3 +174,12 @@ class SqueezePoseNet(nn.Module):
         x = self.encoder(x)
         x = self.decoder(x)
         return x
+
+if __name__ == "__main__":
+    net = SqueezePoseNetEncoder()
+
+    img = torch.rand((1, 1, 256, 256))
+
+    out = net.forward(img)
+
+    print(out.shape)

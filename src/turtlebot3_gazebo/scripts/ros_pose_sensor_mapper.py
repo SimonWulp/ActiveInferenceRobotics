@@ -25,53 +25,52 @@ class PoseSensorMapper:
             self.map_y_range = (-5.0, 7.0)
         elif self.env == 'shapes':
             self.map_x_range = (-9.0, 9.0)
-            self.map_y_range = (-9.0, 4.0)
+            self.map_y_range = (-9.0, 9.0)
         else:
             raise ValueError("Wrong env entered, {} is not a valid environment".format(self.env))
 
+        self.data = []
         self.samples_goal = 2500
         self.samples = 0
 
-        self.pose_data = np.ndarray((0, 2), dtype='f')
-        self.image_data = np.ndarray((0, 256, 256), dtype='f')
+        self.x = self.y = 0
                 
         self.set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
         self.get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
+
+        self.update_pose(self.x, self.y, 0.5 * np.pi)
+
         self.laser_sub = message_filters.Subscriber("/scan", LaserScan)
         self.image_sub = message_filters.Subscriber("/camera/rgb/image_raw", Image)
         self.ts = message_filters.ApproximateTimeSynchronizer([self.laser_sub, self.image_sub], 10, 1)
         self.ts.registerCallback(self.callback)
         self.bridge = CvBridge()
 
+
+
     def callback(self, laser_msg, image_msg):
-        # go to new location
-        next_yaw = 0.5 * np.pi
-        next_x = np.round(np.random.uniform(self.map_x_range[0], self.map_x_range[1]), 3)
-        next_y = np.round(np.random.uniform(self.map_y_range[0], self.map_y_range[1]), 3)
-        self.update_pose(next_x, next_y, next_yaw)
 
-        # camera image
-        try:
-            cv_image = cv2.resize(self.bridge.imgmsg_to_cv2(image_msg, "mono8")[:256], (256, 256)) / 255
-        except CvBridgeError as e:
-            print(e)
+        pose = (self.x, self.y)
+        image = cv2.resize(self.bridge.imgmsg_to_cv2(image_msg, "mono8")[:256], (256, 256)) / 255
 
-        # add pose and observation
-        self.pose_data = np.append(self.pose_data, [[next_x, next_y]], axis=0)
-        self.image_data = np.append(self.image_data, [cv_image], axis=0)
+        self.data.append((pose, image))
 
         self.samples += 1
 
+        # go to new location
+        yaw = 0.5 * np.pi
+        self.x = np.round(np.random.uniform(self.map_x_range[0], self.map_x_range[1]), 3)
+        self.y = np.round(np.random.uniform(self.map_y_range[0], self.map_y_range[1]), 3)
+        self.update_pose(self.x, self.y, yaw)
+
         if self.samples % 100 == 0:
-            self.data = (self.pose_data, self.image_data)
-            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_fixed_mono8_2_4.pkl', 'wb') as f:
+            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_fixed_mono8_3_1.pkl', 'wb') as f:
                 pickle.dump(self.data, f)
 
             print('Pickle dumped at {} samples.'.format(self.samples))
 
         if self.samples >= self.samples_goal:
-            self.data = (self.pose_data, self.image_data)
-            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_fixed_mono8_2_4.pkl', 'wb') as f:
+            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_fixed_mono8_3_1.pkl', 'wb') as f:
                 pickle.dump(self.data, f)
             
             print("Entire environment is mapped.")

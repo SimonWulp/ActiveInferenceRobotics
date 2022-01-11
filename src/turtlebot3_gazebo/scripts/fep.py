@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-from decoder import ConvDecoder
 
 class FEP():
     def __init__(self, environment, decoder) -> None:
