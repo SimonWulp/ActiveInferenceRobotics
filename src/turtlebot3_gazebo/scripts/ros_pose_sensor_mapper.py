@@ -21,8 +21,8 @@ class PoseSensorMapper:
         self.env = env
 
         if self.env == 'outside':
-            self.map_x_range = (-5.5, 6.5)
-            self.map_y_range = (-5.0, 7.0)
+            self.map_x_range = (-6.0, 6.0)
+            self.map_y_range = (-6.0, 6.0)
         elif self.env == 'shapes':
             self.map_x_range = (-9.0, 9.0)
             self.map_y_range = (-9.0, 9.0)
@@ -33,12 +33,12 @@ class PoseSensorMapper:
         self.samples_goal = 2500
         self.samples = 0
 
-        self.x = self.y = 0
+        self.x = self.y = self.yaw = 0
                 
         self.set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
         self.get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
 
-        self.update_pose(self.x, self.y, 0.5 * np.pi)
+        self.update_pose(self.x, self.y, self.yaw)
 
         self.laser_sub = message_filters.Subscriber("/scan", LaserScan)
         self.image_sub = message_filters.Subscriber("/camera/rgb/image_raw", Image)
@@ -50,7 +50,7 @@ class PoseSensorMapper:
 
     def callback(self, laser_msg, image_msg):
 
-        pose = (self.x, self.y)
+        pose = (self.x, self.y, self.yaw)
         image = cv2.resize(self.bridge.imgmsg_to_cv2(image_msg, "mono8")[:256], (256, 256)) / 255
 
         self.data.append((pose, image))
@@ -58,19 +58,19 @@ class PoseSensorMapper:
         self.samples += 1
 
         # go to new location
-        yaw = 0.5 * np.pi
+        self.yaw = np.random.uniform(-np.pi, np.pi)
         self.x = np.round(np.random.uniform(self.map_x_range[0], self.map_x_range[1]), 3)
         self.y = np.round(np.random.uniform(self.map_y_range[0], self.map_y_range[1]), 3)
-        self.update_pose(self.x, self.y, yaw)
+        self.update_pose(self.x, self.y, self.yaw)
 
         if self.samples % 100 == 0:
-            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_fixed_mono8_3_1.pkl', 'wb') as f:
+            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/outside_rot_mono8_1_4.pkl', 'wb') as f:
                 pickle.dump(self.data, f)
 
             print('Pickle dumped at {} samples.'.format(self.samples))
 
         if self.samples >= self.samples_goal:
-            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_fixed_mono8_3_1.pkl', 'wb') as f:
+            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/outside_rot_mono8_1_4.pkl', 'wb') as f:
                 pickle.dump(self.data, f)
             
             print("Entire environment is mapped.")
@@ -95,7 +95,7 @@ class PoseSensorMapper:
 
 
 def main():
-    env = 'shapes'
+    env = 'outside'
     print("Starting mapping of env {}".format(env))
     rospy.init_node('pose_sensor_mapper', anonymous=True)
     psm = PoseSensorMapper(env)
