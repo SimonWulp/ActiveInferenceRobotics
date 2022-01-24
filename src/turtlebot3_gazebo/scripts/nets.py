@@ -8,7 +8,7 @@ class ConvDecoder(nn.Module):
         super(ConvDecoder, self).__init__()
 
         self.ff_layers=nn.Sequential( 
-            nn.Linear(3, 1024),
+            nn.Linear(2, 1024),
             nn.ReLU(),
             nn.Linear(1024, 5 * 5 * 128),
             nn.ReLU(),

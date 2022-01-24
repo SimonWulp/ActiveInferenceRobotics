@@ -13,6 +13,8 @@ from torchvision import transforms
 import message_filters
 from fep import FEP
 import numpy as np
+import matplotlib.pyplot as plt
+import pickle
 from nets import Classifier, ConvDecoder
 
 class RosFEP:
@@ -32,38 +34,38 @@ class RosFEP:
         else:
             raise ValueError("Wrong env entered, {} is not a valid environment".format(self.env))
 
-        self.x = self.y = 0
-        self.yaw = 0.5 * np.pi
-                
         self.set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
-        self.get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
 
-        self.update_pose(self.x, self.y, self.yaw)
+        self.max_steps = 50
+        self.steps_taken = 0
+        self.x = self.y = 0                
+        self.update_pose(self.x, self.y)
+
+        self.decoder = ConvDecoder()
+        self.decoder.cpu()
+        self.decoder.load_state_dict(torch.load("/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/trained_conv_nets/deconv_shapes_fixed_2_200e.pt"))
+        self.decoder.eval()        
+
+        self.classifier = Classifier()
+        self.classifier.cpu()
+        self.classifier.load_state_dict(torch.load("/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/trained_conv_nets/classifier_1_100e.pt"))
+        self.classifier.eval()
+
+        self.fep = FEP(self.decoder, self.classifier)
 
         self.laser_sub = message_filters.Subscriber("/scan", LaserScan)
         self.image_sub = message_filters.Subscriber("/camera/rgb/image_raw", Image)
         self.ts = message_filters.ApproximateTimeSynchronizer([self.laser_sub, self.image_sub], 10, 1)
         self.ts.registerCallback(self.callback)
+
+        
         self.bridge = CvBridge()
-
         self.tf = transforms.Resize((80, 80))
-
-        self.decoder = ConvDecoder()
-        self.decoder.cpu()
-        self.decoder.load_state_dict(torch.load("PATH"))
-        self.decoder.eval()        
-
-        self.classifier = Classifier()
-        self.classifier.cpu()
-        self.classifier.load_state_dict(torch.load("PATH"))
-        self.classifier.eval()
-
-        self.fep = FEP(self.decoder, self.classifier)
 
 
     def callback(self, laser_msg, image_msg):
         # pose
-        pose = (self.x, self.y, self.yaw)
+        pose = [self.x, self.y]
         
         # image
         np_image = cv2.resize(self.bridge.imgmsg_to_cv2(image_msg, "rgb8")[:256], (256, 256)) / 255
@@ -71,16 +73,22 @@ class RosFEP:
         resized_image = self.tf(torch_image).squeeze().numpy()
 
         # fep
-        # TODO
+        self.fep.mu = self.norm_pose(pose)
+        self.fep.step()
 
-        # go to new location
-        self.yaw = np.random.uniform(-np.pi, np.pi)
-        self.x = np.round(np.random.uniform(self.map_x_range[0], self.map_x_range[1]), 3)
-        self.y = np.round(np.random.uniform(self.map_y_range[0], self.map_y_range[1]), 3)
-        self.update_pose(self.x, self.y, self.yaw)
+        self.x, self.y = self.unnorm_pose(self.fep.mu)
+
+        print(self.x, self.y)
         
+        # go to new location
+        self.update_pose(self.x, self.y)
+
+        self.steps_taken += 1
+        if self.steps_taken > self.max_steps:
+            rospy.signal_shutdown('max steps reached')
+
     
-    def update_pose(self, x, y, yaw):
+    def update_pose(self, x, y, yaw=0.5*np.pi):
         next_state = ModelState()
         next_state.model_name = 'turtlebot3_waffle_pi'
 
@@ -95,20 +103,45 @@ class RosFEP:
 
         self.set_state(next_state)
 
-    def select_env():
+
+    def select_env(self):
         ...
+
+    def norm_pose(self, pose):
+        x = (pose[0] - self.map_x_range[0]) / (self.map_x_range[1] - self.map_x_range[0])
+        y = (pose[1] - self.map_y_range[0]) / (self.map_y_range[1] - self.map_y_range[0])
+
+        return (x, y)
+
+    def unnorm_pose(self, pose):
+        x = pose[0] * (self.map_x_range[1] - self.map_x_range[0]) + self.map_x_range[0]
+        y = pose[1] * (self.map_y_range[1] - self.map_y_range[0]) + self.map_y_range[0]
+
+        return (x, y)
 
 
 def main():
     env = 'shapes'
     print("Starting simulation of env {}".format(env))
     rospy.init_node('ros_fep', anonymous=True)
+
     rfep = RosFEP(env)
 
-    try:
-        rospy.spin()
-    except KeyboardInterrupt:
-        print("Shutting down")
+    with open("/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_random_samples_100.pkl", 'rb') as f:
+        pose_samples, img_samples = pickle.load(f)
+
+    sample_idx = 40
+    rfep.fep.s_v = img_samples[sample_idx]
+    
+    goal = rfep.unnorm_pose(pose_samples[sample_idx])
+    print('GOAL POSE: ', goal)
+    plt.imshow(rfep.fep.s_v.transpose(1,2,0))
+    plt.show()
+    
+    rospy.spin()
+
+    dist = np.sqrt((goal[0] - rfep.x)**2 + (goal[1] - rfep.y)**2)
+    print('Max steps reached, distance from goal: ', dist)
 
 if __name__ == '__main__':
     main()
