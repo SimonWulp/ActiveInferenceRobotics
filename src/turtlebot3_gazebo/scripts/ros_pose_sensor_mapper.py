@@ -60,7 +60,7 @@ class PoseSensorMapper:
 
     def callback(self, laser_msg, image_msg):
 
-        pose = (self.x, self.y, self.yaw)
+        pose = [self.x, self.y]
         
         np_image = cv2.resize(self.bridge.imgmsg_to_cv2(image_msg, "rgb8")[:256], (256, 256)) / 255
         torch_image = torch.tensor(np_image.transpose(2,0,1)).unsqueeze(0)
@@ -77,13 +77,13 @@ class PoseSensorMapper:
         self.update_pose(self.x, self.y, self.yaw)
 
         if self.samples % 100 == 0:
-            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_fixed_rgb8_1_3.pkl', 'wb') as f:
+            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_dif_fixed_rgb8_1_4.pkl', 'wb') as f:
                 pickle.dump(self.data, f)
 
             print('Pickle dumped at {} samples.'.format(self.samples))
 
         if self.samples >= self.samples_goal:
-            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_fixed_rgb8_1_3.pkl', 'wb') as f:
+            with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_dif_fixed_rgb8_1_4.pkl', 'wb') as f:
                 pickle.dump(self.data, f)
             
             print("Entire environment is mapped.")
