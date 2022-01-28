@@ -74,8 +74,8 @@ class RosFEP:
         self.classes = ['squares', 'circles']
 
         self.fep = FEP(self.ls_decoders, self.classifier, self.active_inference)
-        self.fep.mu = self.norm_pose(self.fep.mu.squeeze())
-        self.fep.a = self.norm_pose(self.fep.a.squeeze())
+        self.fep.mu = self.norm_pose([self.x, self.y])
+        self.fep.a = self.norm_pose([self.x, self.y])
 
         if self.active_inference:
             self.fep.attractor_image = self.attractor_img
@@ -109,7 +109,6 @@ class RosFEP:
         self.fep.step()
 
         if self.active_inference:
-            print(self.unnorm_pose(self.fep.a.squeeze()))
             self.x, self.y = self.unnorm_pose(self.fep.a.squeeze())
 
             # go to new location
@@ -136,11 +135,6 @@ class RosFEP:
 
         self.set_state(next_state)
 
-
-    def select_env(self):
-        # TODO: context switching
-        ...
-
     def norm_pose(self, pose):
         x = (pose[0] - self.map_x_range[0]) / (self.map_x_range[1] - self.map_x_range[0])
         y = (pose[1] - self.map_y_range[0]) / (self.map_y_range[1] - self.map_y_range[0])
@@ -159,34 +153,64 @@ def main():
     print("Starting simulation of env {}".format(env))
     rospy.init_node('ros_fep', anonymous=True)
 
-    start_pose = [0., 0.]
+    lim = 4
     active_inference = True
-    max_steps = 150
-   
+    max_steps = 100
+
     if active_inference:
         # get random attractor image
         with open("/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/shapes_random_samples_100.pkl", 'rb') as f:
             pose_samples, img_samples = pickle.load(f)
-        sample_idx = 50
+        
+        with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/fep_data_out_lim4.pkl', 'rb') as f:
+            data = pickle.load(f)
+   
+        sample_idx = len(data)
         att_img = img_samples[sample_idx]
 
-        plt.imshow(att_img.transpose(1,2,0))
-        plt.show()
+        # plt.imshow(att_img.transpose(1,2,0))
+        # plt.show()
+
+        x = np.round(np.random.uniform(-lim, lim), 3)
+        y = np.round(np.random.uniform(-lim, lim), 3)
+
+        start_pose = [x, y]
 
         rfep = RosFEP(env, start_pose, max_steps, active_inference, att_img)
-
-        print(rfep.unnorm_pose(pose_samples[sample_idx]))
 
         rospy.spin()
 
         goal_pose = rfep.unnorm_pose(pose_samples[sample_idx])
         end_pose = rfep.unnorm_pose(rfep.fep.a_hist[-1])
-        dist = np.sqrt((goal_pose[0] - end_pose[0])**2 + (goal_pose[1] - end_pose[1])**2)
+        end_dist = np.sqrt((goal_pose[0] - end_pose[0])**2 + (goal_pose[1] - end_pose[1])**2)
 
+        mu_hist = rfep.fep.mu_hist
+        a_hist = rfep.fep.a_hist
+
+        data_new = (
+            sample_idx,
+            start_pose,
+            goal_pose,
+            end_pose,
+            end_dist,
+            mu_hist,
+            a_hist
+        )
+
+        data.append(data_new)
+
+        print(len(data))
+
+        with open('/home/simon/catkin_ws/src/turtlebot3_gazebo/scripts/data/fep_data_out_lim4.pkl', 'wb') as f:
+            pickle.dump(data, f)
+
+        print('{} steps taken'.format(rfep.steps_taken))
         print('goal pos: [{:.3f}, {:.3f}], end pos: [{:.3f}, {:.3f}]'.format(goal_pose[0], goal_pose[1], end_pose[0], end_pose[1]))
-        print('Max steps reached, distance from goal: {:.3f}'.format(dist))
+        print('Max steps reached, distance from goal: {:.3f}'.format(end_dist))
 
     else:
+        start_pose = [0., 0.]
+
         rfep = RosFEP(env, start_pose, max_steps, active_inference)
         rospy.spin()
 

@@ -61,3 +61,10 @@ class Classifier(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
+
+if __name__ == "__main__":
+
+    net = Classifier()
+    inp = torch.rand((1,3,80,80))
+
+    outp = net.forward(inp)

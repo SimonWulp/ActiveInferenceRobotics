@@ -1,12 +1,14 @@
 import numpy as np
 import torch
 from collections import Counter
+from nets import ConvDecoder
 
 class FEP():
-    def __init__(self, ls_decoders, classifier, active_inference=False):
+    def __init__(self, ls_decoders, classifier, active_inference=False, context_aware=False):
         self.ls_decoders = ls_decoders
         self.classifier = classifier
         self.active_inference = active_inference
+        self.context_aware = context_aware
 
         self.img_width = 80
         self.img_height = 80
@@ -20,7 +22,7 @@ class FEP():
         self.a = np.zeros((1, 2))
         self.a_dot = np.zeros((1, 2))
 
-        self.sigma_mu_v = 5*1e3
+        self.sigma_o = 5*1e3
         self.sigma_mu = 1*1e3
         self.beta = 1
         self.dt = 0.02
@@ -38,7 +40,7 @@ class FEP():
         return inp, outp
 
     def get_dF_dmu_vis(self, inp, outp):
-        neg_dF_dg = torch.tensor((1 / self.sigma_mu_v) * self.pred_error)
+        neg_dF_dg = torch.tensor((1 / self.sigma_o) * self.pred_error)
 
         inp.grad = torch.zeros(inp.size())
         outp.backward(neg_dF_dg, retain_graph=True)
@@ -64,9 +66,13 @@ class FEP():
 
 
     def step(self):
-        self.env_class_hist.append(self.get_env_class(self.s_v))
-        self.cur_env_class = Counter(self.env_class_hist[-self.env_class_window:]).most_common(1)[0][0]
-        self.decoder = self.ls_decoders[self.cur_env_class]
+        # if context awareness is disabled, use first conv decoder in ls_decoders
+        if self.context_aware:
+            self.env_class_hist.append(self.get_env_class(self.s_v))
+            self.cur_env_class = Counter(self.env_class_hist[-self.env_class_window:]).most_common(1)[0][0]
+            self.decoder = self.ls_decoders[self.cur_env_class]
+        else:
+            self.decoder = self.ls_decoders[0]
 
         inp, outp = self.get_visual_forward(self.mu)
         self.g_mu = outp.data.cpu().numpy()
@@ -88,3 +94,12 @@ class FEP():
             self.a = self.a + self.dt * a_dot
             self.a = np.clip(self.a, -self.a_clp, self.a_clp)
             self.a_hist.append(self.a)
+
+    def run(self, start_pose, img, iterations):       
+        self.mu = start_pose
+        self.s_v = img
+
+        for i in range(iterations):
+            self.step()
+
+        return self.mu_hist
